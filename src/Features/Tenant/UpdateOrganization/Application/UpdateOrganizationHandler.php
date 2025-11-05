@@ -14,7 +14,7 @@ class UpdateOrganizationHandler
         $organization = Organization::query()->findOrFail($command->organizationId);
 
         if (isset($command->name)) {
-            $command->slug = Str::slug($command->name);
+            $command->slug = $this->generateSlug($command->name);
         }
 
         $organization?->update([
@@ -29,5 +29,16 @@ class UpdateOrganizationHandler
         event(new OrganizationUpdated($organization));
 
         return $organization?->fresh();
+    }
+
+    private function generateSlug(string $name): string
+    {
+        $slug = Str::slug($name);
+
+        if (Organization::query()->where('slug', $slug)->exists()) {
+            return $this->generateSlug($name.'-'.Str::random(4));
+        }
+
+        return $slug;
     }
 }
