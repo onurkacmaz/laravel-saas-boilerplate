@@ -32,7 +32,7 @@ class SetTenantContext
         if ($organizationId) {
             $organization = Organization::query()->find($organizationId);
 
-            if ($organization && $organization->is_active) {
+            if ($organization) {
                 // Verify the user belongs to this organization or is the owner
                 if ($user && ($organization->hasUser($user) || $organization->isOwner($user))) {
                     TenantContext::setOrganization($organization);
