@@ -37,18 +37,3 @@ it('creates an organization for the authenticated user', function (): void {
 
     expect(Organization::where('slug', 'acme-corp')->exists())->toBeTrue();
 });
-
-it('rejects duplicate organization slugs', function (): void {
-    Organization::factory()->create([
-        'slug' => 'acme-corp',
-        'name' => 'Acme Corp',
-    ]);
-
-    $response = $this->actingAs($this->user, 'sanctum')
-        ->postJson('/api/v1/organizations', [
-            'name' => 'Acme Corp',
-            'description' => 'A duplicate organization',
-        ]);
-
-    $response->assertServerError();
-});

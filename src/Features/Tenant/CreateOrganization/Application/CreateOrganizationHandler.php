@@ -18,7 +18,7 @@ class CreateOrganizationHandler
         $organization = Organization::query()->create(
             attributes: [
                 'name' => $command->name,
-                'slug' => Str::slug($command->name),
+                'slug' => $this->generateSlug($command->name),
                 'description' => $command->description,
                 'owner_id' => $command->userId,
                 'is_active' => true,
@@ -34,5 +34,16 @@ class CreateOrganizationHandler
         event(new OrganizationCreated($organization));
 
         return $organization->load(['owner', 'users']);
+    }
+
+    private function generateSlug(string $name): string
+    {
+        $slug = Str::slug($name);
+
+        if (Organization::query()->where('slug', $slug)->exists()) {
+            return $this->generateSlug($name.'-'.Str::random(4));
+        }
+
+        return $slug;
     }
 }
