@@ -7,6 +7,11 @@ use Tests\TestCase;
 uses(TestCase::class, RefreshDatabase::class);
 
 it('registers a user with valid credentials', function (): void {
+    $ownerRole = \App\Models\Role::query()->create([
+        'name' => 'Owner',
+        'slug' => 'owner',
+    ]);
+
     $response = $this->postJson('/api/v1/auth/register', [
         'name' => 'Test User',
         'email' => 'test@example.com',
