@@ -42,7 +42,7 @@ class SubscribeController
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage(),
-            ], $e->getCode() ?? Response::HTTP_INTERNAL_SERVER_ERROR);
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         return response()->json([

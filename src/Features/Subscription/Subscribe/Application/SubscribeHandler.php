@@ -56,8 +56,8 @@ class SubscribeHandler
         }
 
         $checkout = $builder->checkout([
-            'success_url' => route('webhooks.stripe'),
-            'cancel_url' => route('webhooks.stripe'),
+            'success_url' => sprintf('%s/subscriptions/success?session_id={CHECKOUT_SESSION_ID}', config('app.frontend_url')),
+            'cancel_url' => sprintf('%s/subscriptions/cancel', config('app.frontend_url')),
             'client_reference_id' => $organization->id,
             'metadata' => $metadata,
         ], [
