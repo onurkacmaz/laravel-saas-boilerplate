@@ -123,5 +123,5 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    'frontend_url' => env('FE_URL')
+    'frontend_url' => env('FE_URL'),
 ];
