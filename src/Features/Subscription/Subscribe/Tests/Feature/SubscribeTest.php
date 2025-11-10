@@ -41,7 +41,8 @@ it('subscribes the organization to a plan', function (): void {
         ->withArgs(function (Subscribe $command) use ($plan): bool {
             return $command->planId === $plan->id
                 && $command->useTrial === true
-                && $command->quantity === 5;
+                && $command->quantity === 5
+                && $command->organization?->is($this->organization);
         })
         ->andReturn($session);
 

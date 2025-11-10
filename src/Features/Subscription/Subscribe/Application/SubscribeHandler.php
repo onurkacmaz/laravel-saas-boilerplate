@@ -9,6 +9,7 @@ use Features\Subscription\Infrastructure\Eloquent\Models\Subscription as Subscri
 use Features\Subscription\Shared\Events\SubscriptionCreated;
 use Illuminate\Validation\ValidationException;
 use Infrastructure\Tenant\TenantContext;
+use InvalidArgumentException;
 use Throwable;
 
 class SubscribeHandler
@@ -19,7 +20,12 @@ class SubscribeHandler
      */
     public function __invoke(Subscribe $command): CheckoutSession
     {
-        $organization = TenantContext::getOrganization();
+        $organization = $command->organization ?? TenantContext::getOrganization();
+
+        if (! $organization) {
+            throw new InvalidArgumentException('Organization context is required.');
+        }
+
         $plan = Plan::query()->findOrFail($command->planId);
 
         if (! $plan->is_active) {

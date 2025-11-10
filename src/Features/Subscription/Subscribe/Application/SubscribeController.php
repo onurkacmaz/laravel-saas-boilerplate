@@ -6,6 +6,7 @@ use Dedoc\Scramble\Attributes\Group;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
+use Infrastructure\Tenant\TenantContext;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,7 +23,8 @@ class SubscribeController
                 command: new Subscribe(
                     planId: $request->input('plan_id'),
                     useTrial: $request->input('use_trial', false),
-                    quantity: $request->input('quantity')
+                    quantity: $request->input('quantity'),
+                    organization: TenantContext::getOrganization()
                 )
             );
         } catch (ValidationException $exception) {
