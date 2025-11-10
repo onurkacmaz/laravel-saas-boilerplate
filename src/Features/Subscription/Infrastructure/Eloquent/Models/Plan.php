@@ -90,6 +90,11 @@ class Plan extends Model
         return number_format($this->price / 100, 2).' '.$this->currency;
     }
 
+    public function isFree(): bool
+    {
+        return $this->price === 0;
+    }
+
     public static function newFactory(): PlanFactory
     {
         return PlanFactory::new();

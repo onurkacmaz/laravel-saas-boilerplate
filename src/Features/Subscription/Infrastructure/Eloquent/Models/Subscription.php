@@ -10,7 +10,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Laravel\Cashier\Subscription as CashierSubscription;
+use Stripe\Subscription as StripeSubscription;
 
 /**
  * @property string $id
@@ -37,6 +39,8 @@ use Laravel\Cashier\Subscription as CashierSubscription;
 class Subscription extends CashierSubscription
 {
     use HasFactory, HasUuids, SoftDeletes;
+
+    public const string LOCAL_SUBSCRIPTION_PREFIX = 'local_sub_';
 
     protected $guarded = [];
 
@@ -126,11 +130,52 @@ class Subscription extends CashierSubscription
             return 0;
         }
 
-        return (int) now()->diffInDays($endsAt, false);
+        return (int) now()->diffInDays($endsAt);
     }
 
     public function getStatusAttribute(): SubscriptionStatus
     {
         return SubscriptionStatus::fromStripeStatus($this->stripe_status);
+    }
+
+    public static function makeLocalStripeId(): string
+    {
+        return self::LOCAL_SUBSCRIPTION_PREFIX.Str::uuid();
+    }
+
+    public function isLocal(): bool
+    {
+        return str_starts_with((string) $this->stripe_id, self::LOCAL_SUBSCRIPTION_PREFIX);
+    }
+
+    public function cancel(): Subscription|static
+    {
+        if ($this->isLocal()) {
+            return $this->cancelLocally();
+        }
+
+        return parent::cancel();
+    }
+
+    public function cancelNow(): Subscription|static
+    {
+        if ($this->isLocal()) {
+            return $this->cancelLocally();
+        }
+
+        return parent::cancelNow();
+    }
+
+    protected function cancelLocally(): static
+    {
+        $this->fill([
+            'stripe_status' => StripeSubscription::STATUS_CANCELED,
+            'cancel_at_period_end' => false,
+            'cancel_at' => null,
+            'ends_at' => now(),
+            'canceled_at' => now(),
+        ])->save();
+
+        return $this;
     }
 }

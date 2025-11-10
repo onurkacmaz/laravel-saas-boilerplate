@@ -62,6 +62,38 @@ it('subscribes the organization to a plan', function (): void {
         ->assertJsonPath('data.customer_id', $session->customerId);
 });
 
+it('activates free plans without creating a Stripe checkout', function (): void {
+    config(['app.frontend_url' => 'https://frontend.test']);
+
+    $plan = Plan::factory()->create([
+        'price' => 0,
+        'stripe_price_id' => null,
+    ]);
+
+    $response = $this->actingAs($this->user, 'sanctum')
+        ->withHeader('X-Organization-Id', $this->organization->id)
+        ->postJson('/api/v1/subscriptions', [
+            'plan_id' => $plan->id,
+        ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('status', 'success');
+
+    $sessionId = $response->json('data.session_id');
+
+    expect($sessionId)->toStartWith('local_sub_');
+
+    $response->assertJsonPath('data.checkout_url', "https://frontend.test/subscriptions/success?session_id={$sessionId}")
+        ->assertJsonPath('data.customer_id', null);
+
+    $this->assertDatabaseHas('subscriptions', [
+        'organization_id' => $this->organization->id,
+        'plan_id' => $plan->id,
+        'stripe_id' => $sessionId,
+        'stripe_status' => 'active',
+    ]);
+});
+
 it('requires tenant context when subscribing', function (): void {
     $plan = Plan::factory()->create();
 

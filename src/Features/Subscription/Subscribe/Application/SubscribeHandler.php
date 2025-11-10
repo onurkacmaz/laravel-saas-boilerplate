@@ -2,10 +2,14 @@
 
 namespace Features\Subscription\Subscribe\Application;
 
+use App\Models\Organization;
 use Exception;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
+use Features\Subscription\Infrastructure\Eloquent\Models\Subscription as SubscriptionModel;
+use Features\Subscription\Shared\Events\SubscriptionCreated;
 use Illuminate\Validation\ValidationException;
 use Infrastructure\Tenant\TenantContext;
+use Throwable;
 
 class SubscribeHandler
 {
@@ -24,6 +28,19 @@ class SubscribeHandler
             ]);
         }
 
+        $subscriptionName = 'default';
+        $activeSubscription = $organization->subscription($subscriptionName);
+
+        if ($plan->isFree()) {
+            return $this->subscribeToFreePlan(
+                organization: $organization,
+                plan: $plan,
+                command: $command,
+                subscriptionName: $subscriptionName,
+                activeSubscription: $activeSubscription
+            );
+        }
+
         if (! $plan->getStripePriceId()) {
             throw ValidationException::withMessages([
                 'plan_id' => __('This plan is not currently available.'),
@@ -31,9 +48,6 @@ class SubscribeHandler
         }
 
         $stripePrice = $plan->getStripePriceId();
-        $subscriptionName = 'default';
-
-        $activeSubscription = $organization->subscription($subscriptionName);
 
         $metadata = array_filter([
             'organization_id' => $organization->id,
@@ -73,5 +87,63 @@ class SubscribeHandler
             expiresAt: $session->expires_at,
             customerId: $session->customer ?? null
         );
+    }
+
+    private function subscribeToFreePlan(
+        Organization $organization,
+        Plan $plan,
+        Subscribe $command,
+        string $subscriptionName,
+        ?SubscriptionModel $activeSubscription
+    ): CheckoutSession {
+        $this->cancelExistingSubscription($activeSubscription);
+
+        $localStripeId = SubscriptionModel::makeLocalStripeId();
+
+        $trialEndsAt = ($command->useTrial && $plan->trial_days)
+            ? now()->addDays($plan->trial_days)
+            : null;
+
+        /**
+         * @var SubscriptionModel $subscription
+         */
+        $subscription = $organization->subscriptions()->create([
+            'type' => $subscriptionName,
+            'name' => $subscriptionName,
+            'plan_id' => $plan->id,
+            'stripe_id' => $localStripeId,
+            'stripe_status' => 'active',
+            'stripe_price' => null,
+            'quantity' => $command->quantity,
+            'trial_ends_at' => $trialEndsAt,
+            'starts_at' => now(),
+        ]);
+
+        event(new SubscriptionCreated($subscription->fresh(['plan'])));
+
+        $frontendUrl = rtrim(config('app.frontend_url') ?? config('app.url'), '/');
+        $successUrl = sprintf('%s/subscriptions/success?session_id=%s', $frontendUrl, $localStripeId);
+
+        return new CheckoutSession(
+            id: $localStripeId,
+            url: $successUrl,
+            expiresAt: now()->addMinutes(10)->getTimestamp(),
+            customerId: $organization->stripe_id
+        );
+    }
+
+    private function cancelExistingSubscription(?SubscriptionModel $subscription): void
+    {
+        if (! $subscription) {
+            return;
+        }
+
+        try {
+            $subscription->cancelNow();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            $subscription->markAsCanceled();
+        }
     }
 }
