@@ -52,6 +52,9 @@ jobs:
           php-version: '8.4'
           extensions: mbstring, xml, ctype, iconv, intl, bcmath, pdo_pgsql, dom, filter, gd, json, pgsql, redis
           coverage: pcov
+          # pcov instruments a single auto-detected directory (src/) by default,
+          # which would leave app/ out of the coverage report.
+          ini-values: pcov.directory=.
 
       - name: Copy .env
         run: php -r "file_exists('.env') || copy('.env.example', '.env');"
@@ -85,7 +88,7 @@ jobs:
           DB_PASSWORD: postgres
           REDIS_HOST: localhost
           REDIS_PORT: 6379
-        run: php artisan test --coverage --min=70
+        run: php artisan test --coverage --min=90
 
   code-quality:
     runs-on: ubuntu-latest

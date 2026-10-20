@@ -21,6 +21,13 @@
             <directory>app</directory>
             <directory>src</directory>
         </include>
+        <exclude>
+            <!-- Tests live next to the code they cover; they are not part of the measured source. -->
+            <directory>src/Infrastructure/*/Tests</directory>
+            <directory>src/Features/*/*/Tests</directory>
+            <directory>src/Features/*/*/*/Tests</directory>
+            <directory>src/Features/*/*/*/*/Tests</directory>
+        </exclude>
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>

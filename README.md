@@ -273,7 +273,18 @@ composer test                                   # full suite (in-memory SQLite)
 ./vendor/bin/pest tests/Feature/Security        # a directory
 ./vendor/bin/pest --filter="two-factor"         # by name
 composer lint                                   # Pint code style check
+php artisan test --coverage --min=90            # coverage gate used by CI (needs pcov or Xdebug)
 ```
+
+End-to-end user journeys live in `tests/Feature/Flows`:
+- onboarding,
+- the 2FA lifecycle,
+- password recovery,
+- billing,
+- GDPR,
+- webhooks.
+
+`tests/Support/FakeStripeClient` replaces the Stripe SDK in billing tests.
 
 ## API Reference
 

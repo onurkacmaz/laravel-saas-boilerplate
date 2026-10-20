@@ -66,3 +66,17 @@ function userInOrganization(string $roleSlug = 'member', ?\App\Models\Organizati
 
     return [$user, $organization, $role];
 }
+
+/**
+ * Switch the authenticated API identity inside a single test: forget the
+ * resolved guards (Sanctum caches the user between requests) and send the
+ * given bearer token, or none.
+ */
+function actingWithToken(?string $token)
+{
+    $test = test();
+    app('auth')->forgetGuards();
+    $test->flushHeaders();
+
+    return $token === null ? $test : $test->withToken($token);
+}
