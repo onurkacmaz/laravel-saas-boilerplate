@@ -18,6 +18,7 @@ uses(RefreshDatabase::class);
  */
 it('takes a team from sign-up to collaboration', function (): void {
     Notification::fake();
+    config(['app.frontend_url' => 'https://app.example.test']);
     $this->seed(RoleSeeder::class);
 
     // 1. The founder signs up and gets a personal organization.
@@ -31,14 +32,18 @@ it('takes a team from sign-up to collaboration', function (): void {
     $founder = User::query()->where('email', 'founder@example.com')->firstOrFail();
     expect($founder->hasVerifiedEmail())->toBeFalse();
 
-    // 2. The founder verifies the e-mail address with the link from the e-mail.
-    $verificationUrl = null;
-    Notification::assertSentTo($founder, VerifyEmail::class, function (VerifyEmail $notification) use ($founder, &$verificationUrl) {
-        $verificationUrl = $notification->toMail($founder)->actionUrl;
+    // 2. The e-mail links to the frontend, which calls the signed API URL it carries.
+    $emailLink = null;
+    Notification::assertSentTo($founder, VerifyEmail::class, function (VerifyEmail $notification) use ($founder, &$emailLink) {
+        $emailLink = $notification->toMail($founder)->actionUrl;
 
         return true;
     });
-    $this->getJson($verificationUrl)->assertOk();
+
+    expect($emailLink)->toStartWith('https://app.example.test/verify-email?');
+    parse_str((string) parse_url($emailLink, PHP_URL_QUERY), $query);
+
+    $this->getJson($query['verify_url'])->assertOk();
     expect($founder->fresh()->hasVerifiedEmail())->toBeTrue();
 
     // 3. The founder logs in and sees the personal organization.
