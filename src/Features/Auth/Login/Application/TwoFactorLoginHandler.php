@@ -69,10 +69,16 @@ class TwoFactorLoginHandler
      */
     private function challengedUser(string $jwt): User
     {
+        // Validate iat/nbf/exp against the application clock, the same clock
+        // used to issue the token (see User::jwtPayload()).
+        JWT::$timestamp = now()->getTimestamp();
+
         try {
             $decoded = JWT::decode($jwt, new Key(User::jwtSecret(), 'HS256'));
         } catch (Throwable) {
             throw new InvalidJWTException;
+        } finally {
+            JWT::$timestamp = null;
         }
 
         // Only tokens issued for a 2FA challenge are accepted here.

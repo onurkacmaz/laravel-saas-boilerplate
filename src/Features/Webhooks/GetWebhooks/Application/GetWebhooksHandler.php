@@ -14,7 +14,8 @@ class GetWebhooksHandler
             ->when($search, function ($query, string $search) {
                 $term = '%'.addcslashes($search, '%_\\').'%';
 
-                $query->where(fn ($query) => $query->where('name', 'like', $term)->orWhere('url', 'like', $term));
+                // Case-insensitive on every database (ILIKE on PostgreSQL).
+                $query->where(fn ($query) => $query->whereLike('name', $term)->orWhereLike('url', $term));
             })
             ->latest()
             ->paginate(

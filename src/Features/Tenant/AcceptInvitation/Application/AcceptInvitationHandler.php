@@ -26,11 +26,13 @@ class AcceptInvitationHandler
                 ->firstOrFail();
 
             if (! $invitation->canBeAccepted()) {
+                // Persist the expiry (it must survive the failure, so the
+                // transaction is committed instead of rolled back by a throw).
                 if ($invitation->isExpired()) {
                     $invitation->markAsExpired();
                 }
 
-                throw new InvalidArgumentException('This invitation cannot be accepted.', 422);
+                return null;
             }
 
             if (User::normalizeEmail($command->user->email) !== User::normalizeEmail($invitation->email)) {
@@ -62,6 +64,10 @@ class AcceptInvitationHandler
 
             return $invitation;
         });
+
+        if ($invitation === null) {
+            throw new InvalidArgumentException('This invitation cannot be accepted.', 422);
+        }
 
         event(new InvitationAccepted($invitation, $command->user));
 

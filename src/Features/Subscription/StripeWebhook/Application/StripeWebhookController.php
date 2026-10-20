@@ -10,6 +10,7 @@ use Features\Subscription\Shared\Events\PaymentSucceeded;
 use Features\Subscription\Shared\Events\SubscriptionCanceled;
 use Features\Subscription\Shared\Events\SubscriptionCreated;
 use Features\Subscription\Shared\Events\SubscriptionUpdated;
+use Features\Subscription\Shared\Events\SubscriptionUpgraded;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -25,7 +26,7 @@ class StripeWebhookController extends CashierController
      */
     public function handleCustomerSubscriptionCreated(array $payload): Response
     {
-        $response = parent::handleCustomerSubscriptionCreated($payload);
+        $response = parent::handleCustomerSubscriptionCreated($payload) ?? $this->successMethod();
 
         $data = $payload['data']['object'] ?? [];
         $metadata = $data['metadata'] ?? [];
@@ -65,7 +66,9 @@ class StripeWebhookController extends CashierController
 
     public function handleCustomerSubscriptionUpdated(array $payload): Response
     {
-        $response = parent::handleCustomerSubscriptionUpdated($payload);
+        // Cashier returns null (instead of a response) when it deletes an
+        // "incomplete_expired" subscription.
+        $response = parent::handleCustomerSubscriptionUpdated($payload) ?? $this->successMethod();
 
         [$organization, $subscription] = $this->resolveSubscription($payload['data']['object'] ?? []);
 
@@ -76,19 +79,26 @@ class StripeWebhookController extends CashierController
         // Keep the local plan in sync when the price changes (e.g. plan switch
         // from the Stripe customer portal).
         $planId = $this->resolvePlanId($payload['data']['object'] ?? []);
+        $oldPlan = $subscription->plan;
 
         if ($planId && $planId !== $subscription->plan_id) {
             $subscription->forceFill(['plan_id' => $planId])->save();
         }
 
-        event(new SubscriptionUpdated($subscription->fresh(['plan'])));
+        $subscription = $subscription->fresh(['plan']);
+
+        event(new SubscriptionUpdated($subscription));
+
+        if ($oldPlan && $subscription->plan && $subscription->plan->price > $oldPlan->price) {
+            event(new SubscriptionUpgraded($subscription, $oldPlan, $subscription->plan));
+        }
 
         return $response;
     }
 
     public function handleCustomerSubscriptionDeleted(array $payload): Response
     {
-        $response = parent::handleCustomerSubscriptionDeleted($payload);
+        $response = parent::handleCustomerSubscriptionDeleted($payload) ?? $this->successMethod();
 
         [$organization, $subscription] = $this->resolveSubscription($payload['data']['object'] ?? []);
 
@@ -190,7 +200,9 @@ class StripeWebhookController extends CashierController
         $data = $payload['data']['object'];
         $customerId = $data['customer'] ?? null;
 
-        if ($customerId) {
+        // Payment intents of subscription invoices are already reported by the
+        // matching invoice.* event; notifying twice would duplicate e-mails.
+        if ($customerId && empty($data['invoice'])) {
             $organization = Organization::query()->where('stripe_id', $customerId)->first();
             if ($organization) {
                 event(new PaymentSucceeded($organization, $data));
@@ -208,7 +220,9 @@ class StripeWebhookController extends CashierController
         $data = $payload['data']['object'];
         $customerId = $data['customer'] ?? null;
 
-        if ($customerId) {
+        // Payment intents of subscription invoices are already reported by the
+        // matching invoice.* event; notifying twice would duplicate e-mails.
+        if ($customerId && empty($data['invoice'])) {
             $organization = Organization::query()->where('stripe_id', $customerId)->first();
             if ($organization) {
                 event(new PaymentFailed($organization, $data));

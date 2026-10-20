@@ -14,7 +14,7 @@ class GetEventsHandler
 
         return AuditLog::query()
             ->where('organization_id', TenantContext::getOrganizationId())
-            ->when($search, fn ($query, string $search) => $query->where('event', 'like', '%'.addcslashes($search, '%_\\').'%'))
+            ->when($search, fn ($query, string $search) => $query->whereLike('event', '%'.addcslashes($search, '%_\\').'%'))
             ->distinct()
             ->orderBy('event')
             ->limit(500)
