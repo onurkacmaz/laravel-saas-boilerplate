@@ -123,5 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    'frontend_url' => env('FE_URL'),
+    /*
+    |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | Base URL of the client application. Used to build links sent by e-mail
+    | (invitations, password resets, e-mail verification, billing pages).
+    | Falls back to APP_URL when empty.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', env('FE_URL')),
 ];

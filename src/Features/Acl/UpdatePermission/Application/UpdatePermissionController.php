@@ -9,16 +9,16 @@ use Illuminate\Http\JsonResponse;
 class UpdatePermissionController
 {
     /**
-     * Update a permission by ID.
+     * Update a permission.
+     *
+     * Only the fields present in the request are updated. System permissions are read-only.
      */
     public function __invoke(UpdatePermissionRequest $request, string $permissionId, UpdatePermissionHandler $handler): JsonResponse
     {
         $permission = $handler(
             command: new UpdatePermission(
                 permissionId: $permissionId,
-                name: $request->input('name'),
-                slug: $request->input('slug'),
-                description: $request->input('description')
+                attributes: $request->validated(),
             )
         );
 

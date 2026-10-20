@@ -130,7 +130,7 @@ class Subscription extends CashierSubscription
             return 0;
         }
 
-        return (int) now()->diffInDays($endsAt);
+        return max(0, (int) ceil(now()->diffInDays($endsAt, false)));
     }
 
     public function getStatusAttribute(): SubscriptionStatus

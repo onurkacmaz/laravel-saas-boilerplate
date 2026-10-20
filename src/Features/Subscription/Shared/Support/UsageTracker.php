@@ -44,7 +44,7 @@ class UsageTracker
             return 0;
         }
 
-        return Usage::query()
+        return (int) Usage::query()
             ->where('organization_id', $this->organization->id)
             ->where('resource_type', $resourceType)
             ->sum('amount');
@@ -59,11 +59,11 @@ class UsageTracker
             return 0;
         }
 
-        return Usage::query()
+        // A range on created_at (instead of whereMonth/whereYear) can use the index.
+        return (int) Usage::query()
             ->where('organization_id', $this->organization->id)
             ->where('resource_type', $resourceType)
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
+            ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
             ->sum('amount');
     }
 
@@ -80,6 +80,11 @@ class UsageTracker
         // For example, for users:
         if ($resourceType === 'users') {
             return $this->organization->users()->count();
+        }
+
+        // Metered resources are counted from the usage records of the current period.
+        if ($resourceType === 'api_calls') {
+            return $this->getCurrentPeriodTotal($resourceType);
         }
 
         // For other resources, you might need to implement specific logic

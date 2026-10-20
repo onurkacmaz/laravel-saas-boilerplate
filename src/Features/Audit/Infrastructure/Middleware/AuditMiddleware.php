@@ -5,6 +5,7 @@ namespace Features\Audit\Infrastructure\Middleware;
 use Closure;
 use Features\Audit\Infrastructure\Support\AuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 readonly class AuditMiddleware
@@ -22,16 +23,19 @@ readonly class AuditMiddleware
     {
         $response = $next($request);
 
-        // Only audit successful state-changing requests
+        // Only audit successful state-changing requests. Auditing must never
+        // turn a successful request into an error.
         if ($this->shouldAudit($request, $response)) {
-            $this->auditLogger->action(
+            rescue(fn () => $this->auditLogger->action(
                 action: $this->getActionName($request),
                 metadata: [
                     'method' => $request->method(),
-                    'url' => $request->fullUrl(),
+                    // The path only: query strings may carry signatures or tokens.
+                    'path' => '/'.ltrim($request->path(), '/'),
+                    'route' => $request->route()?->getName(),
                     'status_code' => $response->getStatusCode(),
                 ]
-            );
+            ));
         }
 
         return $response;
@@ -57,7 +61,7 @@ readonly class AuditMiddleware
             return false;
         }
 
-        return true;
+        return (bool) config('audit.enabled', true);
     }
 
     /**
@@ -65,13 +69,20 @@ readonly class AuditMiddleware
      */
     private function getActionName(Request $request): string
     {
+        // Route names ("api.v1.organizations.update") describe the action far
+        // better than the URL, whose last segment is often an identifier.
+        $routeName = $request->route()?->getName();
+
+        if ($routeName) {
+            return preg_replace('/^api\.v\d+\./', '', $routeName);
+        }
+
         $method = strtolower($request->method());
-        $path = $request->path();
+        $segments = array_values(array_filter(
+            explode('/', $request->path()),
+            fn (string $segment) => $segment !== '' && ! Str::isUuid($segment)
+        ));
 
-        // Extract the resource name from the path
-        $segments = explode('/', $path);
-        $resource = $segments[array_key_last($segments)] ?? 'unknown';
-
-        return "$method.$resource";
+        return $method.'.'.($segments[array_key_last($segments)] ?? 'unknown');
     }
 }

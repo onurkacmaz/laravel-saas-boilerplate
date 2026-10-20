@@ -31,8 +31,8 @@ class SubscriptionCanceledNotification extends Notification implements ShouldQue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $planName = $this->subscription->plan->name;
-        $organizationName = $this->subscription->organization->name;
+        $planName = ($this->subscription->plan?->name ?? config('app.name'));
+        $organizationName = ($this->subscription->organization?->name ?? config('app.name'));
         $endsAt = $this->subscription->ends_at?->format('F j, Y');
 
         $message = (new MailMessage)
@@ -47,7 +47,7 @@ class SubscriptionCanceledNotification extends Notification implements ShouldQue
         }
 
         $message->line('If you change your mind, you can reactivate your subscription anytime.')
-            ->action('View Plans', config('app.frontend_url').'/plans')
+            ->action('View Plans', rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/plans')
             ->line('If you have any questions, please contact our support team.')
             ->salutation('Best regards, '.config('app.name'));
 
@@ -63,8 +63,8 @@ class SubscriptionCanceledNotification extends Notification implements ShouldQue
     {
         return [
             'subscription_id' => $this->subscription->id,
-            'plan_name' => $this->subscription->plan->name,
-            'organization_name' => $this->subscription->organization->name,
+            'plan_name' => $this->subscription->plan?->name,
+            'organization_name' => ($this->subscription->organization?->name ?? config('app.name')),
             'ends_at' => $this->subscription->ends_at,
             'canceled_at' => $this->subscription->canceled_at,
         ];

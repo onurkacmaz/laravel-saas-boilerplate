@@ -33,20 +33,20 @@ class SubscriptionUpgradedNotification extends Notification implements ShouldQue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $newPlanName = $this->subscription->plan->name;
+        $newPlanName = ($this->subscription->plan?->name ?? config('app.name'));
         $oldPlanName = $this->oldPlan->name;
-        $organizationName = $this->subscription->organization->name;
-        $dashboardUrl = config('app.frontend_url').'/organizations/'.$this->subscription->organization_id.'/dashboard';
+        $organizationName = ($this->subscription->organization?->name ?? config('app.name'));
+        $dashboardUrl = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/organizations/'.$this->subscription->organization_id.'/dashboard';
 
         return (new MailMessage)
             ->subject("You've upgraded to {$newPlanName}!")
             ->greeting('Hello!')
             ->line("Great news! You've successfully upgraded **{$organizationName}** from **{$oldPlanName}** to **{$newPlanName}**.")
             ->line('Your new plan includes:')
-            ->line("- **Users:** {$this->formatLimit($this->subscription->plan->limits['users'] ?? null)}")
-            ->line("- **Storage:** {$this->formatLimit($this->subscription->plan->limits['storage'] ?? null, 'MB')}")
-            ->line("- **API Calls:** {$this->formatLimit($this->subscription->plan->limits['api_calls'] ?? null)}")
-            ->line("- **Projects:** {$this->formatLimit($this->subscription->plan->limits['projects'] ?? null)}")
+            ->line("- **Users:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['users'] ?? null)}")
+            ->line("- **Storage:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['storage'] ?? null, 'MB')}")
+            ->line("- **API Calls:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['api_calls'] ?? null)}")
+            ->line("- **Projects:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['projects'] ?? null)}")
             ->line('All features are immediately available!')
             ->action('Go to Dashboard', $dashboardUrl)
             ->line('Thank you for choosing a higher plan!')
@@ -62,9 +62,9 @@ class SubscriptionUpgradedNotification extends Notification implements ShouldQue
     {
         return [
             'subscription_id' => $this->subscription->id,
-            'new_plan_name' => $this->subscription->plan->name,
+            'new_plan_name' => $this->subscription->plan?->name,
             'old_plan_name' => $this->oldPlan->name,
-            'organization_name' => $this->subscription->organization->name,
+            'organization_name' => ($this->subscription->organization?->name ?? config('app.name')),
         ];
     }
 

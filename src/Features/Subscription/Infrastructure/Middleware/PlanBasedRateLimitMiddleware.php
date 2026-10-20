@@ -23,6 +23,10 @@ class PlanBasedRateLimitMiddleware
         $key = $this->rateLimiter->generateKey($request, $scope);
         $limits = $this->rateLimiter->getPlanRateLimit();
 
+        if ($this->rateLimiter->isUnlimited($limits)) {
+            return $next($request);
+        }
+
         if ($this->rateLimiter->tooManyAttempts($key, $limits)) {
             return $this->buildRateLimitResponse($key, $limits);
         }

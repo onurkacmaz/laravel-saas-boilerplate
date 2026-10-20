@@ -24,7 +24,7 @@ class PaymentSucceededNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $amount = ($this->paymentData['amount_paid'] ?? 0) / 100;
+        $amount = number_format(((int) ($this->paymentData['amount_paid'] ?? $this->paymentData['amount_received'] ?? 0)) / 100, 2);
         $currency = strtoupper($this->paymentData['currency'] ?? 'usd');
 
         return (new MailMessage)
@@ -34,7 +34,7 @@ class PaymentSucceededNotification extends Notification implements ShouldQueue
             ->line("Amount: {$amount} {$currency}")
             ->line("Organization: {$this->organization->name}")
             ->line('Thank you for your business!')
-            ->action('View Dashboard', url('/dashboard'))
+            ->action('View Dashboard', rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/dashboard')
             ->line('If you have any questions, please contact our support team.');
     }
 

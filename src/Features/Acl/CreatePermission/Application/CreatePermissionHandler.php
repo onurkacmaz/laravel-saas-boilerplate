@@ -9,11 +9,9 @@ class CreatePermissionHandler
 {
     public function __invoke(CreatePermission $command): Permission
     {
-        $command->slug = $command->slug ?? Str::slug($command->name);
-
         return Permission::query()->create([
             'name' => $command->name,
-            'slug' => $command->slug,
+            'slug' => $command->slug ?: Str::slug($command->name, '.'),
             'description' => $command->description,
         ])->load('roles');
     }

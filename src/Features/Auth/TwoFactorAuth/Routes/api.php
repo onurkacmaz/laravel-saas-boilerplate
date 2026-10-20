@@ -10,7 +10,7 @@ Route::prefix('api/v1')
         Route::prefix('2fa')
             ->name('2fa.')
             ->group(function () {
-                Route::middleware(['auth:sanctum', 'tenant.context'])
+                Route::middleware(['auth:sanctum', 'throttle:10,1'])
                     ->group(function () {
                         Route::post('/enable', [TwoFactorController::class, 'enable'])
                             ->name('enable');
@@ -20,6 +20,8 @@ Route::prefix('api/v1')
                             ->name('disable');
                         Route::get('/recovery-codes', [TwoFactorController::class, 'recoveryCodes'])
                             ->name('recovery-codes');
+                        Route::post('/recovery-codes', [TwoFactorController::class, 'regenerateRecoveryCodes'])
+                            ->name('recovery-codes.regenerate');
                     });
             });
     });

@@ -12,12 +12,13 @@ Route::prefix('api/v1')
             ->name('auth.')
             ->group(function () {
                 Route::post('/login', [LoginController::class, '__invoke'])
+                    ->middleware('throttle:auth')
                     ->name('login');
             });
 
         Route::prefix('2fa')
             ->name('2fa.')
-            ->middleware('guest')
+            ->middleware(['guest', 'throttle:two-factor'])
             ->group(function () {
                 Route::post('/challenge', [TwoFactorAuthenticationController::class, '__invoke'])
                     ->name('challenge');

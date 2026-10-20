@@ -2,52 +2,77 @@
 
 namespace Features\Webhooks\DeliverWebhook\Application;
 
-use Exception;
 use Features\Webhooks\Infrastructure\Eloquent\Models\WebhookDelivery;
-use Illuminate\Database\Eloquent\Model;
+use Features\Webhooks\Shared\Support\WebhookRules;
+use Features\Webhooks\Shared\Support\WebhookUrlGuard;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Throwable;
 
 class DeliverWebhookHandler
 {
-    public function __invoke(DeliverWebhook $command): Model|WebhookDelivery|null
+    /**
+     * Send one delivery attempt and record its outcome.
+     *
+     * Only a 2xx answer counts as a success. The request body is signed with
+     * HMAC-SHA256 over "{timestamp}.{body}" using the webhook secret; the
+     * timestamp is sent in X-Webhook-Timestamp so receivers can reject replays.
+     */
+    public function __invoke(DeliverWebhook $command): WebhookDelivery
     {
-        // Create a delivery record
+        $webhook = $command->webhook;
+
+        /** @var WebhookDelivery $delivery */
         $delivery = WebhookDelivery::query()->create([
-            'webhook_id' => $command->webhook->id,
+            'webhook_id' => $webhook->id,
             'event_name' => $command->eventName,
             'payload' => $command->payload,
             'status' => 'pending',
+            'attempt' => max(1, $command->attempt),
         ]);
 
-        try {
-            // Prepare headers
-            $headers = array_merge(
-                $command->webhook->headers ?? [],
-                [
-                    'Content-Type' => 'application/json',
-                    'User-Agent' => 'SaaS-Webhooks/1.0',
-                ]
-            );
+        // Re-checked at delivery time: DNS records may have changed since the
+        // URL was validated (DNS rebinding).
+        if (! WebhookUrlGuard::isAllowed($webhook->url)) {
+            $delivery->markAsFailed(null, 'Delivery blocked: the endpoint resolves to a private or reserved address.');
 
-            // Add HMAC signature if secret is set
-            if ($command->webhook->secret) {
-                $headers['X-Webhook-Signature'] = hash_hmac('sha256', json_encode($command->payload), $command->webhook->secret);
+            return $delivery->fresh();
+        }
+
+        try {
+            $body = json_encode($command->payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $timestamp = (string) now()->getTimestamp();
+
+            $headers = array_merge(WebhookRules::sanitizeHeaders($webhook->headers), [
+                'User-Agent' => (string) config('webhooks.user_agent', 'SaaS-Webhooks/1.0'),
+                'X-Webhook-Event' => $command->eventName,
+                'X-Webhook-Delivery' => $delivery->id,
+                'X-Webhook-Timestamp' => $timestamp,
+            ]);
+
+            if ($webhook->secret) {
+                $headers['X-Webhook-Signature'] = hash_hmac('sha256', $timestamp.'.'.$body, $webhook->secret);
             }
 
-            // Send HTTP request
-            $response = Http::timeout($command->webhook->timeout)
+            $response = Http::timeout(max(1, (int) $webhook->timeout))
+                ->connectTimeout(min(10, max(1, (int) $webhook->timeout)))
                 ->withHeaders($headers)
-                ->post($command->webhook->url, $command->payload);
+                ->withoutRedirecting()
+                ->withBody($body, 'application/json')
+                ->post($webhook->url);
 
-            // Mark as successful
-            $delivery->markAsSuccess($response->status(), $response->body());
+            $responseBody = Str::limit((string) $response->body(), (int) config('webhooks.max_response_body', 65535), '');
 
-            // Update webhook last triggered time
-            $command->webhook->updateLastTriggered();
-        } catch (Exception $e) {
-            // Mark as failed
-            $delivery->markAsFailed(null, $e->getMessage());
+            if ($response->successful()) {
+                $delivery->markAsSuccess($response->status(), $responseBody);
+            } else {
+                $delivery->markAsFailed($response->status(), 'Endpoint responded with HTTP '.$response->status().'.', $responseBody);
+            }
+        } catch (Throwable $e) {
+            $delivery->markAsFailed(null, Str::limit($e->getMessage(), 1000));
         }
+
+        $webhook->updateLastTriggered();
 
         return $delivery->fresh();
     }

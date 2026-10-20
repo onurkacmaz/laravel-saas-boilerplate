@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
+use Features\Subscription\Infrastructure\Eloquent\Models\Usage;
 use Features\Webhooks\Infrastructure\Eloquent\Models\Webhook;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -21,6 +22,7 @@ use Laravel\Cashier\Billable;
  * @property string|null $description
  * @property string $owner_id
  * @property bool $is_active
+ * @property string|null $stripe_id
  * @property User $owner
  */
 class Organization extends Model
@@ -85,15 +87,28 @@ class Organization extends Model
 
     public function isAdmin(User $user): bool
     {
-        $pivot = $this->users()->where('user_id', $user->id)->first()?->pivot;
-
-        if (! $pivot) {
-            return false;
+        if ($this->isOwner($user)) {
+            return true;
         }
 
-        $role = Role::query()->find($pivot->role_id);
+        return in_array($this->roleOf($user)?->slug, ['owner', 'admin'], true);
+    }
 
-        return $role && in_array($role->slug, ['owner', 'admin']);
+    /**
+     * Resolve the role the given user holds in this organization.
+     *
+     * The tenant scope is bypassed on purpose: system roles are stored with a
+     * NULL organization and must be resolvable whatever the current tenant is.
+     */
+    public function roleOf(User $user): ?Role
+    {
+        $roleId = $this->users()->where('user_id', $user->id)->first()?->pivot?->role_id;
+
+        if (! $roleId) {
+            return null;
+        }
+
+        return Role::query()->withoutOrganization()->find($roleId);
     }
 
     public function activeSubscription(): Subscription|\Laravel\Cashier\Subscription|null
@@ -117,6 +132,16 @@ class Organization extends Model
         $subscription = $this->activeSubscription();
 
         return $subscription !== null && $subscription->plan_id === $planId;
+    }
+
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(Invitation::class);
+    }
+
+    public function usages(): HasMany
+    {
+        return $this->hasMany(Usage::class);
     }
 
     public function setting(): HasOne

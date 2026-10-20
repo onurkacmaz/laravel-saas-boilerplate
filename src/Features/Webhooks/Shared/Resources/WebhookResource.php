@@ -20,7 +20,12 @@ class WebhookResource extends JsonResource
             'name' => $this->name,
             'url' => $this->url,
             'events' => $this->events,
-            'secret' => $this->when($request->user()?->id === $this->organization->owner_id, $this->secret),
+            // The signing secret is only disclosed to whoever creates the webhook
+            // and to the organization owner.
+            'secret' => $this->when(
+                $request->routeIs('api.v1.webhooks.store') || ($request->user() && $request->user()->id === $this->organization?->owner_id),
+                $this->secret
+            ),
             'is_active' => $this->is_active,
             'headers' => $this->headers,
             'timeout' => $this->timeout,

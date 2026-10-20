@@ -10,11 +10,14 @@ use Illuminate\Http\Request;
 class GdprRequestDeletionController
 {
     /**
-     * Cancel a user data deletion request.
+     * Request the deletion of the account.
+     *
+     * The account is permanently deleted after a grace period (30 days by
+     * default) unless the request is cancelled.
      */
     public function __invoke(Request $request, GdprRequestDeletionHandler $handler): JsonResponse
     {
-        $handler(
+        $deletionDate = $handler(
             command: new GdprRequestDeletion(
                 user: $request->user()
             )
@@ -22,7 +25,10 @@ class GdprRequestDeletionController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Data deletion request cancelled successfully',
+            'message' => sprintf('Data deletion requested. Your account will be permanently deleted on %s.', $deletionDate->toDateString()),
+            'data' => [
+                'deletion_date' => $deletionDate->toDateString(),
+            ],
         ]);
     }
 }

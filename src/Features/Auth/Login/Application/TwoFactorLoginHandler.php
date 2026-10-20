@@ -3,7 +3,7 @@
 namespace Features\Auth\Login\Application;
 
 use App\Models\User;
-use Exception;
+use Features\Auth\Login\Events\LoginSucceeded;
 use Features\Auth\Login\Events\RecoveryCodeReplaced;
 use Features\Auth\Login\Events\TwoFactorAuthenticationFailed;
 use Features\Auth\Login\Events\ValidTwoFactorAuthenticationCodeProvided;
@@ -11,105 +11,112 @@ use Features\Auth\Login\Exceptions\InvalidJWTException;
 use Features\Auth\TwoFactorAuth\Infrastructure\Support\TwoFactor;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Illuminate\Support\Facades\Cache;
+use JsonException;
+use Throwable;
 
 class TwoFactorLoginHandler
 {
+    public function __construct(
+        private readonly TwoFactor $twoFactor
+    ) {}
+
     /**
+     * @return array{0: User, 1: string}
+     *
      * @throws InvalidJWTException
+     * @throws JsonException
      */
     public function __invoke(LoginWithTwoFactor $command): array
     {
         $user = $this->challengedUser($command->jwt);
 
-        if (! $this->hasValidJWT($command->jwt)) {
-            throw new InvalidJWTException;
-        }
-
-        if ($code = $this->validRecoveryCode($command->jwt, $command->recoveryCode)) {
+        if ($command->recoveryCode !== null && $code = $this->validRecoveryCode($user, $command->recoveryCode)) {
             $user->replaceRecoveryCode($code);
-            $token = $user->createToken('auth_token')->plainTextToken;
 
             event(new RecoveryCodeReplaced($user, $code));
 
-            return [$user, $token];
-        } elseif (! $this->hasValidCode($command->jwt, $command->code)) {
+            return $this->completeLogin($user);
+        }
+
+        if ($command->code === null || ! $this->hasValidCode($user, $command->code)) {
             event(new TwoFactorAuthenticationFailed($user));
 
             throw new InvalidJWTException;
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
         event(new ValidTwoFactorAuthenticationCodeProvided($user));
+
+        return $this->completeLogin($user);
+    }
+
+    /**
+     * @return array{0: User, 1: string}
+     */
+    private function completeLogin(User $user): array
+    {
+        $token = LoginUserHandler::issueToken($user);
+
+        LoginSucceeded::dispatch('sanctum', $user, false);
 
         return [$user, $token];
     }
 
     /**
+     * Resolve the user the challenge token was issued for.
+     *
      * @throws InvalidJWTException
      */
     private function challengedUser(string $jwt): User
     {
-        $decodedJwt = $this->decodeJwt($jwt);
-
-        if (! $this->hasValidJWT($jwt)) {
-            throw new InvalidJWTException;
-        }
-
-        return User::query()->find($decodedJwt->sub);
-    }
-
-    /**
-     * @throws InvalidJWTException
-     */
-    private function validRecoveryCode(string $jwt, ?string $recoveryCode = null): ?string
-    {
-        if (! $recoveryCode) {
-            return false;
-        }
-
-        return tap(collect($this->challengedUser($jwt)->recoveryCodes())
-            ->first(function ($code) use ($recoveryCode) {
-                return hash_equals($code, $recoveryCode) ? $code : null;
-            }))->target;
-    }
-
-    /**
-     * @throws InvalidJWTException
-     */
-    private function hasValidCode(string $jwt, string $code): bool
-    {
-        if (! $code) {
-            return false;
-        }
-
-        return app(TwoFactor::class)->verifyOtp(
-            secret: $this->challengedUser($jwt)->two_factor_secret,
-            otp: $code
-        );
-    }
-
-    /**
-     * @throws InvalidJWTException
-     */
-    protected function decodeJwt(string $jwt): object
-    {
         try {
-            return JWT::decode($jwt, new Key(env('JWT_SECRET'), 'HS256'));
-        } catch (Exception) {
+            $decoded = JWT::decode($jwt, new Key(User::jwtSecret(), 'HS256'));
+        } catch (Throwable) {
             throw new InvalidJWTException;
         }
-    }
 
-    /**
-     * @throws InvalidJWTException
-     */
-    public function hasValidJWT(string $jwt): bool
-    {
-        $decoded = $this->decodeJwt($jwt);
+        // Only tokens issued for a 2FA challenge are accepted here.
+        if (($decoded->purpose ?? null) !== '2fa' || empty($decoded->sub) || ! is_string($decoded->sub)) {
+            throw new InvalidJWTException;
+        }
 
         $user = User::query()->find($decoded->sub);
 
-        return ! is_null($user);
+        // The user may have been deleted or may have disabled 2FA since the
+        // challenge was issued.
+        if (! $user || ! $user->hasTwoFactorEnabled()) {
+            throw new InvalidJWTException;
+        }
+
+        return $user;
+    }
+
+    /**
+     * @throws JsonException
+     */
+    private function validRecoveryCode(User $user, string $recoveryCode): ?string
+    {
+        $recoveryCode = trim($recoveryCode);
+
+        foreach ($user->recoveryCodes() as $code) {
+            if (hash_equals((string) $code, $recoveryCode)) {
+                return $code;
+            }
+        }
+
+        return null;
+    }
+
+    private function hasValidCode(User $user, string $code): bool
+    {
+        $code = preg_replace('/\s+/', '', $code) ?? '';
+
+        if ($code === '' || ! $this->twoFactor->verifyOtp(secret: (string) $user->two_factor_secret, otp: $code)) {
+            return false;
+        }
+
+        // A TOTP code may only be used once inside its validity window, so an
+        // intercepted code cannot be replayed.
+        return Cache::add('2fa-used:'.$user->id.':'.$code, true, now()->addMinutes(2));
     }
 }

@@ -5,16 +5,30 @@ namespace Features\Tenant\RemoveUserFromOrganization\Application;
 use App\Models\Organization;
 use App\Models\User;
 use Features\Tenant\RemoveUserFromOrganization\Events\UserRemovedFromOrganization;
-use Illuminate\Database\Eloquent\Model;
+use Features\Tenant\Shared\Support\OrganizationRoles;
+use InvalidArgumentException;
 
 class RemoveUserFromOrganizationHandler
 {
-    public function __invoke(RemoveUserFromOrganization $command): Model|User
+    /**
+     * @throws InvalidArgumentException
+     */
+    public function __invoke(RemoveUserFromOrganization $command): User
     {
         $organization = Organization::query()->findOrFail($command->organizationId);
-        $user = User::query()->findOrFail($command->userId);
 
-        $organization?->removeUser($user);
+        /** @var User $user */
+        $user = $organization->users()->findOrFail($command->userId);
+
+        if ($organization->isOwner($user)) {
+            throw new InvalidArgumentException('The organization owner cannot be removed. Transfer the ownership first.', 422);
+        }
+
+        if ($command->actor && ! OrganizationRoles::canManage($organization, $command->actor, $user)) {
+            throw new InvalidArgumentException('You do not have permission to remove this member.', 403);
+        }
+
+        $organization->removeUser($user);
 
         event(new UserRemovedFromOrganization($organization, $user));
 

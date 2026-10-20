@@ -15,24 +15,27 @@ class DispatchWebhookJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 3;
-
-    public int $backoff = 60;
+    /**
+     * Failed deliveries are retried by releasing the job back onto the queue
+     * (see handle()); the job itself must never be retried on exceptions, or a
+     * delivery could be sent twice.
+     */
+    public int $tries = 1;
 
     /**
-     * Create a new job instance.
+     * The webhook may have been deleted before the job runs.
      */
+    public bool $deleteWhenMissingModels = true;
+
     public function __construct(
         public Webhook $webhook,
         public string $eventName,
-        public array $payload
+        public array $payload,
+        public int $attempt = 1,
     ) {
         //
     }
 
-    /**
-     * Execute the job.
-     */
     public function handle(): void
     {
         // Check if the webhook is still active
@@ -46,18 +49,23 @@ class DispatchWebhookJob implements ShouldQueue
         }
 
         $handler = new DeliverWebhookHandler;
-        $handler(command: new DeliverWebhook(
+        $delivery = $handler(command: new DeliverWebhook(
             webhook: $this->webhook,
             eventName: $this->eventName,
             payload: $this->payload,
+            attempt: $this->attempt,
         ));
+
+        // retry_limit is the maximum number of attempts for one event.
+        if ($delivery->isFailed() && $this->attempt < (int) $this->webhook->retry_limit) {
+            $backoff = (array) config('webhooks.backoff', [60]);
+            $delay = (int) ($backoff[$this->attempt - 1] ?? end($backoff) ?: 60);
+
+            static::dispatch($this->webhook, $this->eventName, $this->payload, $this->attempt + 1)
+                ->delay(now()->addSeconds($delay));
+        }
     }
 
-    /**
-     * Get the tags that should be assigned to the job.
-     *
-     * @return array<int, string>
-     */
     public function tags(): array
     {
         return [

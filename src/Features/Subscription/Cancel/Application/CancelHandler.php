@@ -16,6 +16,11 @@ class CancelHandler
             throw new NotFoundHttpException('No active subscription');
         }
 
+        // Already scheduled for cancellation: only an immediate cancel changes anything.
+        if ($subscription->onGracePeriod() && ! $command->immediately) {
+            return $subscription->fresh(['plan']);
+        }
+
         if ($command->immediately) {
             $subscription->cancelNow();
         } else {

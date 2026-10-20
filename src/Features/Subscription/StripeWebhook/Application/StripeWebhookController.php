@@ -4,6 +4,7 @@ namespace Features\Subscription\StripeWebhook\Application;
 
 use App\Models\Organization;
 use Dedoc\Scramble\Attributes\Group;
+use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Shared\Events\PaymentFailed;
 use Features\Subscription\Shared\Events\PaymentSucceeded;
 use Features\Subscription\Shared\Events\SubscriptionCanceled;
@@ -11,6 +12,7 @@ use Features\Subscription\Shared\Events\SubscriptionCreated;
 use Features\Subscription\Shared\Events\SubscriptionUpdated;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Laravel\Cashier\Http\Controllers\WebhookController as CashierController;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -25,29 +27,20 @@ class StripeWebhookController extends CashierController
     {
         $response = parent::handleCustomerSubscriptionCreated($payload);
 
-        $data = $payload['data']['object'];
+        $data = $payload['data']['object'] ?? [];
         $metadata = $data['metadata'] ?? [];
-        $organizationId = $metadata['organization_id'] ?? null;
 
-        if (! $organizationId) {
-            return $response;
-        }
-
-        $organization = Organization::query()->find($organizationId);
+        [$organization, $subscription] = $this->resolveSubscription($data);
 
         if (! $organization) {
             return $response;
         }
 
-        $subscription = $organization->subscriptions()
-            ->where('stripe_id', $data['id'])
-            ->first();
-
         if ($subscription) {
             $updates = [];
 
-            if (isset($metadata['plan_id'])) {
-                $updates['plan_id'] = $metadata['plan_id'];
+            if ($planId = $this->resolvePlanId($data)) {
+                $updates['plan_id'] = $planId;
             }
 
             $startTimestamp = $data['current_period_start'] ?? $data['start_date'] ?? null;
@@ -63,74 +56,99 @@ class StripeWebhookController extends CashierController
             event(new SubscriptionCreated($subscription->fresh(['plan'])));
         }
 
-        $this->cancelPreviousSubscription(
-            $organization,
-            $metadata,
-            $data['id']
-        );
+        if (isset($data['id'])) {
+            $this->cancelPreviousSubscription($organization, $metadata, $data['id']);
+        }
+
+        return $response;
+    }
+
+    public function handleCustomerSubscriptionUpdated(array $payload): Response
+    {
+        $response = parent::handleCustomerSubscriptionUpdated($payload);
+
+        [$organization, $subscription] = $this->resolveSubscription($payload['data']['object'] ?? []);
+
+        if (! $organization || ! $subscription) {
+            return $response;
+        }
+
+        // Keep the local plan in sync when the price changes (e.g. plan switch
+        // from the Stripe customer portal).
+        $planId = $this->resolvePlanId($payload['data']['object'] ?? []);
+
+        if ($planId && $planId !== $subscription->plan_id) {
+            $subscription->forceFill(['plan_id' => $planId])->save();
+        }
+
+        event(new SubscriptionUpdated($subscription->fresh(['plan'])));
+
+        return $response;
+    }
+
+    public function handleCustomerSubscriptionDeleted(array $payload): Response
+    {
+        $response = parent::handleCustomerSubscriptionDeleted($payload);
+
+        [$organization, $subscription] = $this->resolveSubscription($payload['data']['object'] ?? []);
+
+        if ($organization && $subscription) {
+            event(new SubscriptionCanceled($subscription->fresh(['plan'])));
+        }
 
         return $response;
     }
 
     /**
-     * Handle customer subscription updated.
+     * Find the organization and local subscription a Stripe subscription
+     * payload refers to (by metadata first, then by Stripe customer id).
+     *
+     * @return array{0: Organization|null, 1: \Features\Subscription\Infrastructure\Eloquent\Models\Subscription|null}
      */
-    public function handleCustomerSubscriptionUpdated(array $payload): Response
+    protected function resolveSubscription(array $data): array
     {
-        $response = parent::handleCustomerSubscriptionUpdated($payload);
+        $organizationId = $data['metadata']['organization_id'] ?? null;
+        $organization = null;
 
-        $data = $payload['data']['object'];
-        $metadata = $data['metadata'] ?? [];
-        $organizationId = $metadata['organization_id'] ?? null;
-
-        if (! $organizationId) {
-            return $response;
+        if (is_string($organizationId) && Str::isUuid($organizationId)) {
+            $organization = Organization::query()->find($organizationId);
         }
 
-        $organization = Organization::query()->find($organizationId);
+        if (! $organization && ! empty($data['customer']) && is_string($data['customer'])) {
+            $organization = Organization::query()->where('stripe_id', $data['customer'])->first();
+        }
 
-        if (! $organization) {
-            return $response;
+        if (! $organization || empty($data['id'])) {
+            return [$organization, null];
         }
 
         $subscription = $organization->subscriptions()
             ->where('stripe_id', $data['id'])
             ->first();
 
-        if ($subscription) {
-            event(new SubscriptionUpdated($subscription->fresh(['plan'])));
-        }
-
-        return $response;
+        return [$organization, $subscription];
     }
 
     /**
-     * Handle customer subscription deleted.
+     * Resolve the local plan from the metadata, falling back to the Stripe price.
      */
-    public function handleCustomerSubscriptionDeleted(array $payload): Response
+    protected function resolvePlanId(array $data): ?string
     {
-        $response = parent::handleCustomerSubscriptionDeleted($payload);
+        $planId = $data['metadata']['plan_id'] ?? null;
 
-        $data = $payload['data']['object'];
-        $metadata = $data['metadata'] ?? [];
-        $organizationId = $metadata['organization_id'] ?? null;
-
-        if (! $organizationId) {
-            return $response;
+        if (is_string($planId) && Str::isUuid($planId) && Plan::query()->whereKey($planId)->exists()) {
+            return $planId;
         }
 
-        $organization = Organization::query()->find($organizationId);
+        $priceId = $data['items']['data'][0]['price']['id'] ?? $data['plan']['id'] ?? null;
 
-        if ($organization && $subscription = $organization->subscription($data['id'])) {
-            event(new SubscriptionCanceled($subscription));
+        if (! is_string($priceId) || $priceId === '') {
+            return null;
         }
 
-        return $response;
+        return Plan::query()->where('stripe_price_id', $priceId)->value('id');
     }
 
-    /**
-     * Handle invoice payment succeeded.
-     */
     public function handleInvoicePaymentSucceeded(array $payload): Response
     {
         $data = $payload['data']['object'];

@@ -3,7 +3,6 @@
 namespace Features\Auth\Login\Application;
 
 use Dedoc\Scramble\Attributes\Group;
-use Features\Auth\Login\Exceptions\InvalidCredentialsException;
 use Features\Auth\Login\Exceptions\InvalidJWTException;
 use Features\Auth\Shared\Resources\UserResource;
 
@@ -13,16 +12,18 @@ class TwoFactorAuthenticationController
     /**
      * 2FA Challenge.
      *
-     * @throws InvalidCredentialsException
+     * Exchange the challenge token returned by the login endpoint, plus a TOTP
+     * code or a recovery code, for an API token.
+     *
      * @throws InvalidJWTException
      */
     public function __invoke(TwoFactorLoginRequest $request, TwoFactorLoginHandler $handler)
     {
         [$user, $token] = $handler(
             command: new LoginWithTwoFactor(
-                jwt: $request->input('jwt'),
-                code: $request->input('code'),
-                recoveryCode: $request->input('recovery_code'),
+                jwt: (string) $request->input('jwt'),
+                code: $request->filled('code') ? (string) $request->input('code') : null,
+                recoveryCode: $request->filled('recovery_code') ? (string) $request->input('recovery_code') : null,
             )
         );
 

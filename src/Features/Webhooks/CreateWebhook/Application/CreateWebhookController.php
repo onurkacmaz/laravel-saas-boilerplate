@@ -2,7 +2,6 @@
 
 namespace Features\Webhooks\CreateWebhook\Application;
 
-use App\Models\Organization;
 use Dedoc\Scramble\Attributes\Group;
 use Features\Webhooks\Shared\Resources\WebhookResource;
 use Illuminate\Http\JsonResponse;
@@ -13,20 +12,23 @@ use Symfony\Component\HttpFoundation\Response;
 class CreateWebhookController
 {
     /**
-     * Create a new webhook.
+     * Create a webhook endpoint.
+     *
+     * A signing secret is generated when none is provided; it is returned in
+     * the response and must be used to verify the `X-Webhook-Signature` header.
      */
-    public function __invoke(CreateWebhookRequest $request, Organization $organization, CreateWebhookHandler $handler): JsonResponse
+    public function __invoke(CreateWebhookRequest $request, CreateWebhookHandler $handler): JsonResponse
     {
         $webhook = $handler(
             command: new CreateWebhook(
-                name: $request->input('name'),
-                url: $request->input('url'),
-                events: $request->input('events'),
-                secret: $request->input('secret'),
-                enabled: $request->input('enabled', true),
-                headers: $request->input('headers', []),
-                timeout: $request->input('timeout', 30),
-                retryLimit: $request->input('retry_limit', 3),
+                name: (string) $request->validated('name'),
+                url: (string) $request->validated('url'),
+                events: array_values(array_unique($request->validated('events'))),
+                secret: $request->validated('secret'),
+                enabled: $request->boolean('is_active', true),
+                headers: $request->validated('headers') ?? [],
+                timeout: $request->integer('timeout', 30),
+                retryLimit: $request->integer('retry_limit', 3),
                 organization: TenantContext::getOrganization()
             )
         );

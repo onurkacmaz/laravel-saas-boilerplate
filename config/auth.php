@@ -112,8 +112,32 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
-    'token_lifetime' => env('AUTH_TOKEN_LIFETIME', 3600),
+    /*
+    |--------------------------------------------------------------------------
+    | API Token Lifetime
+    |--------------------------------------------------------------------------
+    |
+    | Lifetime, in minutes, of the Sanctum personal access tokens issued on
+    | login (including logins completed through a two-factor challenge).
+    |
+    */
 
-    '2fa_token_lifetime' => env('2FA_AUTH_TOKEN_LIFETIME', 3600),
+    'token_lifetime' => (int) env('AUTH_TOKEN_LIFETIME', 3600),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Two-Factor Challenge Tokens
+    |--------------------------------------------------------------------------
+    |
+    | Short-lived JWTs handed to the client when a login requires a second
+    | factor. When JWT_SECRET is empty the application key is used instead.
+    | The TTL is expressed in minutes.
+    |
+    */
+
+    'jwt' => [
+        'secret' => env('JWT_SECRET'),
+        'ttl' => (int) env('JWT_TTL', 5),
+    ],
 
 ];

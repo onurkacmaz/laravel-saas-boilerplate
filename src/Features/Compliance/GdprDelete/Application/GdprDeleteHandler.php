@@ -2,76 +2,116 @@
 
 namespace Features\Compliance\GdprDelete\Application;
 
+use App\Models\Invitation;
+use App\Models\Organization;
+use App\Models\User;
+use Features\Acl\Shared\Support\SystemRoles;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Throwable;
 
 class GdprDeleteHandler
 {
+    /**
+     * Erase a user's personal data.
+     *
+     * Owned organizations are handed over to another admin when there is one;
+     * otherwise they are deleted (and their subscriptions cancelled). The user
+     * record is anonymized and soft deleted so that foreign keys (audit
+     * trails, invitations...) stay consistent.
+     */
     public function __invoke(GdprDelete $command): void
     {
         $user = $command->user;
 
-        DB::transaction(static function () use ($user) {
-            Log::info('Starting GDPR data deletion', ['user_id' => $user->id]);
+        Log::info('Starting GDPR data deletion', ['user_id' => $user->id]);
 
-            // Delete API tokens
-            $user->tokens()->delete();
+        $organizationsToDelete = [];
+        $ownershipTransfers = [];
 
-            // Delete audit logs
-            $user->auditLogs()->delete();
+        foreach ($user->ownedOrganizations()->get() as $organization) {
+            $successor = $this->findSuccessor($organization, $user);
 
-            // Remove from organizations (but don't delete the organizations)
-            $user->organizations()->detach();
+            if ($successor) {
+                $ownershipTransfers[] = [$organization, $successor];
+            } else {
+                $organizationsToDelete[] = $organization;
+            }
+        }
 
-            // Delete owned organizations if user is the sole owner
-            foreach ($user->ownedOrganizations as $organization) {
-                // Check if there are other admins
-                $adminsCount = $organization->members()
-                    ->wherePivot('role', 'admin')
-                    ->count();
+        // Talk to the payment provider before touching the database: a remote
+        // call cannot be rolled back with the transaction.
+        foreach ($organizationsToDelete as $organization) {
+            $this->cancelSubscriptions($organization);
+        }
 
-                if ($adminsCount <= 1) {
-                    // Cancel subscriptions
-                    $organization->subscriptions()->each(function ($subscription) {
-                        if ($subscription->active()) {
-                            $subscription->cancelNow();
-                        }
-                    });
-
-                    // Delete organization data
-                    $organization->webhooks()->delete();
-                    $organization->invitations()->delete();
-                    $organization->usages()->delete();
-                    $organization->members()->detach();
-                    $organization->delete();
-                } else {
-                    // Transfer ownership to another admin
-                    $newOwner = $organization->members()
-                        ->wherePivot('role', 'admin')
-                        ->where('users.id', '!=', $user->id)
-                        ->first();
-
-                    if ($newOwner) {
-                        $organization->update(['owner_id' => $newOwner->id]);
-                    }
-                }
+        DB::transaction(function () use ($user, $organizationsToDelete, $ownershipTransfers) {
+            foreach ($ownershipTransfers as [$organization, $successor]) {
+                $organization->forceFill(['owner_id' => $successor->id])->save();
+                $organization->addUser($successor, SystemRoles::ensure(SystemRoles::OWNER)->id);
             }
 
-            // Anonymize user data instead of hard delete for audit trail
-            $user->update([
+            foreach ($organizationsToDelete as $organization) {
+                $organization->webhooks()->delete();
+                $organization->invitations()->delete();
+                $organization->users()->detach();
+                $organization->delete();
+            }
+
+            $user->tokens()->delete();
+            $user->roles()->detach();
+            $user->organizations()->detach();
+            $user->auditLogs()->update(['ip_address' => null, 'user_agent' => null]);
+
+            // Invitations addressed to the user contain their e-mail address.
+            Invitation::query()->where('email', $user->email)->forceDelete();
+
+            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+
+            $user->forceFill([
                 'name' => 'Deleted User',
-                'email' => 'deleted-'.$user->id.'@deleted.local',
-                'password' => bcrypt(str()->random(64)),
+                'email' => 'deleted-'.$user->id.'@deleted.invalid',
+                'password' => Str::random(64),
                 'email_verified_at' => null,
+                'remember_token' => null,
+                'two_factor_enabled' => false,
+                'two_factor_verified' => false,
                 'two_factor_secret' => null,
                 'two_factor_recovery_codes' => null,
-                'two_factor_confirmed_at' => null,
-            ]);
+                'deletion_requested_at' => null,
+            ])->save();
 
-            // Soft delete the user
             $user->delete();
-
-            Log::info('GDPR data deletion completed', ['user_id' => $user->id]);
         });
+
+        Log::info('GDPR data deletion completed', ['user_id' => $user->id]);
+    }
+
+    /**
+     * Pick the admin who takes over an organization. Without one, the
+     * organization is deleted together with the account.
+     */
+    private function findSuccessor(Organization $organization, User $user): ?User
+    {
+        $candidates = $organization->users()->where('users.id', '!=', $user->id)->get();
+
+        return $candidates->first(fn (User $member) => $organization->isAdmin($member));
+    }
+
+    private function cancelSubscriptions(Organization $organization): void
+    {
+        foreach ($organization->subscriptions()->get() as $subscription) {
+            if (! $subscription->valid()) {
+                continue;
+            }
+
+            try {
+                $subscription->cancelNow();
+            } catch (Throwable $exception) {
+                report($exception);
+                $subscription->markAsCanceled();
+            }
+        }
     }
 }

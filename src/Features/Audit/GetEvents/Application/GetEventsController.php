@@ -9,15 +9,15 @@ use Illuminate\Http\JsonResponse;
 class GetEventsController
 {
     /**
-     * Get audit log events.
+     * List the distinct audit event names recorded for the current organization.
      */
-    public function __invoke(GetEventsRequest $request, string $auditLogId, GetEventsHandler $handler): JsonResponse
+    public function __invoke(GetEventsRequest $request, GetEventsHandler $handler): JsonResponse
     {
+        $search = $request->query('search');
+
         $events = $handler(
             command: new GetEvents(
-                page: $request->input('page'),
-                perPage: $request->input('perPage'),
-                search: $request->input('search'),
+                search: is_string($search) ? $search : null,
             )
         );
 

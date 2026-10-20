@@ -22,7 +22,11 @@ readonly class RateLimiter
         $organization = $this->tenantContext->getOrganization();
 
         if (! $organization) {
-            return $this->getDefaultRateLimit();
+            // Authenticated users without an organization context get the free
+            // tier; anonymous traffic gets the stricter default.
+            return $this->tenantContext->getUser()
+                ? $this->getFreeRateLimit()
+                : $this->getDefaultRateLimit();
         }
 
         $subscription = $organization->activeSubscription();
@@ -31,7 +35,19 @@ readonly class RateLimiter
             return $this->getFreeRateLimit();
         }
 
+        if (! $subscription->plan) {
+            return $this->getFreeRateLimit();
+        }
+
         return $this->getRateLimitForPlan($subscription->plan);
+    }
+
+    /**
+     * Determine whether the given limits mean "no limit at all".
+     */
+    public function isUnlimited(array $limits): bool
+    {
+        return (int) ($limits['max_attempts'] ?? 0) < 0;
     }
 
     /**
@@ -39,13 +55,17 @@ readonly class RateLimiter
      */
     private function getRateLimitForPlan(Plan $plan): array
     {
-        $maxAttempts = $plan->limits['requests_per_minute'] ?? null;
+        $maxAttempts = $plan->getLimit('requests_per_minute');
 
-        if (is_null($maxAttempts)) {
+        if (! is_numeric($maxAttempts)) {
             return $this->getDefaultRateLimit();
         }
 
-        // A value of -1 is considered unlimited. The underlying Laravel rate limiter handles this correctly.
+        $maxAttempts = (int) $maxAttempts;
+
+        // A negative value (conventionally -1) is considered unlimited. The Laravel
+        // rate limiter does not support that natively, so callers must check
+        // isUnlimited() before calling tooManyAttempts()/hit().
         if ($maxAttempts < 0) {
             return [
                 'max_attempts' => -1,

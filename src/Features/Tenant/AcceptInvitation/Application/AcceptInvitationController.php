@@ -7,6 +7,7 @@ use Features\Tenant\Shared\Resources\InvitationResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Infrastructure\Http\ApiError;
 use InvalidArgumentException;
 
 #[Group('Invitations')]
@@ -25,10 +26,7 @@ class AcceptInvitationController
                 )
             );
         } catch (InvalidArgumentException $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage(),
-            ], $e->getCode() ?? 400);
+            return ApiError::fromException($e);
         }
 
         return $invitation->toResource(InvitationResource::class)->additional([

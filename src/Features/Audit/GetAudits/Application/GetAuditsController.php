@@ -3,33 +3,34 @@
 namespace Features\Audit\GetAudits\Application;
 
 use Dedoc\Scramble\Attributes\Group;
-use Illuminate\Http\JsonResponse;
+use Features\Audit\Shared\Resources\AuditLogResource;
+use Illuminate\Http\Resources\Json\ResourceCollection;
+use Infrastructure\Http\Pagination;
 
 #[Group('Audit')]
 class GetAuditsController
 {
     /**
-     * Get audit logs.
+     * List the audit logs of the current organization, newest first.
+     *
+     * Filters: `event`, `user_id`, `from`, `to`; pagination: `page`, `per_page` (max 100).
      */
-    public function __invoke(GetAuditsRequest $request, string $auditLogId, GetAuditsHandler $handler): JsonResponse
+    public function __invoke(GetAuditsRequest $request, GetAuditsHandler $handler): ResourceCollection
     {
         $auditLogs = $handler(
             command: new GetAudits(
-                page: $request->input('page'),
-                perPage: $request->input('perPage'),
-                event: $request->input('event'),
-                userId: $request->input('user_id')
+                page: Pagination::page($request),
+                perPage: Pagination::perPage($request),
+                event: $request->validated('event'),
+                userId: $request->validated('user_id'),
+                from: $request->validated('from'),
+                to: $request->validated('to'),
             )
         );
 
-        return response()->json([
-            'data' => $auditLogs->items(),
-            'meta' => [
-                'current_page' => $auditLogs->currentPage(),
-                'last_page' => $auditLogs->lastPage(),
-                'per_page' => $auditLogs->perPage(),
-                'total' => $auditLogs->total(),
-            ],
+        return AuditLogResource::collection($auditLogs)->additional([
+            'status' => 'success',
+            'message' => 'Audit logs retrieved successfully.',
         ]);
     }
 }

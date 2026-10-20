@@ -31,6 +31,19 @@ class Permission extends Model
         'organization_id',
     ];
 
+    /**
+     * System-wide records (NULL organization) are visible to every tenant.
+     */
+    public function includesSystemRecords(): bool
+    {
+        return true;
+    }
+
+    public function isSystem(): bool
+    {
+        return $this->organization_id === null;
+    }
+
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'permission_roles');

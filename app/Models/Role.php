@@ -37,6 +37,19 @@ class Role extends Model
         'is_default' => 'boolean',
     ];
 
+    /**
+     * System-wide records (NULL organization) are visible to every tenant.
+     */
+    public function includesSystemRecords(): bool
+    {
+        return true;
+    }
+
+    public function isSystem(): bool
+    {
+        return $this->organization_id === null;
+    }
+
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class, 'permission_roles');

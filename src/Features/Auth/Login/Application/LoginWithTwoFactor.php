@@ -6,7 +6,7 @@ readonly class LoginWithTwoFactor
 {
     public function __construct(
         public string $jwt,
-        public string $code,
+        public ?string $code = null,
         public ?string $recoveryCode = null,
     ) {}
 }

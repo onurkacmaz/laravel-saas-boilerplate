@@ -2,6 +2,7 @@
 
 namespace Features\Acl\UpdatePermission\Application;
 
+use Features\Acl\Shared\Support\AclRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -26,8 +27,8 @@ class UpdatePermissionRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', 'unique:permissions,slug,'.$permissionId],
-            'description' => ['nullable', 'string', 'max:1000'],
+            'slug' => ['sometimes', 'nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_.:-]+$/', AclRules::uniqueSlug('permissions', is_string($permissionId) ? $permissionId : null)],
+            'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
         ];
     }
 }

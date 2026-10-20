@@ -14,6 +14,10 @@ class SendSubscriptionUpgradedNotification
     {
         $subscription = $event->subscription;
         $organization = $subscription->organization;
+
+        if (! $organization) {
+            return;
+        }
         $oldPlan = $event->oldPlan;
 
         if ($owner = $organization->owner) {

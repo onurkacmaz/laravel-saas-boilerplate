@@ -3,10 +3,10 @@
 namespace Features\Compliance\GdprDelete\Commands;
 
 use App\Models\User;
-use Exception;
 use Features\Compliance\GdprDelete\Application\GdprDelete;
 use Features\Compliance\GdprDelete\Application\GdprDeleteHandler;
 use Illuminate\Console\Command;
+use Throwable;
 
 class ProcessScheduledDeletions extends Command
 {
@@ -18,7 +18,7 @@ class ProcessScheduledDeletions extends Command
     {
         $usersToDelete = User::query()
             ->whereNotNull('deletion_requested_at')
-            ->where('deletion_requested_at', '<=', now()->subDays(30))
+            ->where('deletion_requested_at', '<=', now()->subDays((int) config('gdpr.deletion_grace_days', 30)))
             ->get();
 
         if ($usersToDelete->isEmpty()) {
@@ -31,21 +31,22 @@ class ProcessScheduledDeletions extends Command
 
         foreach ($usersToDelete as $user) {
             try {
-                $this->info("Deleting user: $user->email (ID: $user->id)");
-                $handler = new GdprDeleteHandler;
+                // Do not print personal data (e-mail) to logs/console output.
+                $this->info("Deleting user ID: $user->id");
+                $handler = app(GdprDeleteHandler::class);
                 $handler(
                     command: new GdprDelete(
                         user: $user,
                     )
                 );
                 $count++;
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 $this->error("Failed to delete user $user->id: {$e->getMessage()}");
             }
         }
 
         $this->info("Processed $count user deletions.");
 
-        return self::SUCCESS;
+        return $count === $usersToDelete->count() ? self::SUCCESS : self::FAILURE;
     }
 }

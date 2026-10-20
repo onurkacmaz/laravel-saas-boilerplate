@@ -16,12 +16,15 @@ class DisableTwoFactorRequest extends FormRequest
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Turning off a security feature requires re-authentication, so a stolen
+     * API token alone is not enough to disable 2FA.
      *
      * @return array<string, ValidationRule|array|string>
      */
     public function rules(): array
     {
-        return [];
+        return [
+            'password' => ['required', 'string', 'current_password:sanctum'],
+        ];
     }
 }

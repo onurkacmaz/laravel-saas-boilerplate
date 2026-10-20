@@ -37,11 +37,23 @@ class SubscribeHandler
         $subscriptionName = 'default';
         $activeSubscription = $organization->subscription($subscriptionName);
 
+        if ($activeSubscription && $activeSubscription->valid() && ! $activeSubscription->onGracePeriod()
+            && $activeSubscription->plan_id === $plan->id) {
+            throw ValidationException::withMessages([
+                'plan_id' => __('The organization is already subscribed to this plan.'),
+            ]);
+        }
+
+        // Trials are a one-time offer per organization: re-subscribing must not
+        // grant a new free trial every time.
+        $useTrial = $command->useTrial && $plan->trial_days > 0 && ! $this->hasUsedTrial($organization);
+
         if ($plan->isFree()) {
             return $this->subscribeToFreePlan(
                 organization: $organization,
                 plan: $plan,
                 command: $command,
+                useTrial: $useTrial,
                 subscriptionName: $subscriptionName,
                 activeSubscription: $activeSubscription
             );
@@ -65,7 +77,7 @@ class SubscribeHandler
         $builder = $organization->newSubscription($subscriptionName, $stripePrice)
             ->withMetadata($metadata);
 
-        if ($command->useTrial && $plan->trial_days) {
+        if ($useTrial) {
             $builder->trialDays($plan->trial_days);
         } else {
             $builder->skipTrial();
@@ -75,9 +87,11 @@ class SubscribeHandler
             $builder->quantity($command->quantity);
         }
 
+        $frontendUrl = $this->frontendUrl();
+
         $checkout = $builder->checkout([
-            'success_url' => sprintf('%s/subscriptions/success?session_id={CHECKOUT_SESSION_ID}', config('app.frontend_url')),
-            'cancel_url' => sprintf('%s/subscriptions/cancel', config('app.frontend_url')),
+            'success_url' => sprintf('%s/subscriptions/success?session_id={CHECKOUT_SESSION_ID}', $frontendUrl),
+            'cancel_url' => sprintf('%s/subscriptions/cancel', $frontendUrl),
             'client_reference_id' => $organization->id,
             'metadata' => $metadata,
         ], [
@@ -99,6 +113,7 @@ class SubscribeHandler
         Organization $organization,
         Plan $plan,
         Subscribe $command,
+        bool $useTrial,
         string $subscriptionName,
         ?SubscriptionModel $activeSubscription
     ): CheckoutSession {
@@ -106,13 +121,12 @@ class SubscribeHandler
 
         $localStripeId = SubscriptionModel::makeLocalStripeId();
 
-        $trialEndsAt = ($command->useTrial && $plan->trial_days)
-            ? now()->addDays($plan->trial_days)
-            : null;
+        $trialEndsAt = $useTrial ? now()->addDays($plan->trial_days) : null;
 
         /**
          * @var SubscriptionModel $subscription
          */
+        /** @var SubscriptionModel $subscription */
         $subscription = $organization->subscriptions()->create([
             'type' => $subscriptionName,
             'name' => $subscriptionName,
@@ -127,8 +141,7 @@ class SubscribeHandler
 
         event(new SubscriptionCreated($subscription->fresh(['plan'])));
 
-        $frontendUrl = rtrim(config('app.frontend_url') ?? config('app.url'), '/');
-        $successUrl = sprintf('%s/subscriptions/success?session_id=%s', $frontendUrl, $localStripeId);
+        $successUrl = sprintf('%s/subscriptions/success?session_id=%s', $this->frontendUrl(), $localStripeId);
 
         return new CheckoutSession(
             id: $localStripeId,
@@ -138,9 +151,22 @@ class SubscribeHandler
         );
     }
 
+    private function frontendUrl(): string
+    {
+        return rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/');
+    }
+
+    private function hasUsedTrial(Organization $organization): bool
+    {
+        return $organization->subscriptions()
+            ->withTrashed()
+            ->whereNotNull('trial_ends_at')
+            ->exists();
+    }
+
     private function cancelExistingSubscription(?SubscriptionModel $subscription): void
     {
-        if (! $subscription) {
+        if (! $subscription || $subscription->canceled()) {
             return;
         }
 

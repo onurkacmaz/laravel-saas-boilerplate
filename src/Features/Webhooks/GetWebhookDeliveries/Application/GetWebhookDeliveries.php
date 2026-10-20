@@ -9,7 +9,8 @@ class GetWebhookDeliveries
     public function __construct(
         public Organization $organization,
         public string $webhookId,
-        public ?int $page = 1,
-        public ?int $perPage = 10
+        public int $page = 1,
+        public int $perPage = 10,
+        public ?string $status = null,
     ) {}
 }

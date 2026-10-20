@@ -20,10 +20,17 @@ class UpdateOrganizationRequest extends FormRequest
      *
      * @return array<string, ValidationRule|array|string>
      */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('name'))) {
+            $this->merge(['name' => trim($this->input('name'))]);
+        }
+    }
+
     public function rules(): array
     {
         return [
-            'name' => ['sometimes', 'string', 'max:255'],
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'is_active' => ['sometimes', 'boolean'],
         ];

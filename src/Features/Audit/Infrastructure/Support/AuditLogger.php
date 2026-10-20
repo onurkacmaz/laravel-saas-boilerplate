@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Infrastructure\Tenant\Middleware\SetTenantContext;
 use Infrastructure\Tenant\TenantContext;
 
 readonly class AuditLogger
@@ -28,8 +29,13 @@ readonly class AuditLogger
     ): AuditLog {
         $request = $request ?? request();
 
+        // The tenant context is cleared once the tenant middleware finished, so
+        // fall back to the organization it recorded on the request.
+        $organizationId = $this->tenantContext->getOrganizationId()
+            ?? $request->attributes->get(SetTenantContext::REQUEST_ATTRIBUTE);
+
         return AuditLog::query()->create([
-            'organization_id' => $this->tenantContext->getOrganizationId(),
+            'organization_id' => $organizationId,
             'user_id' => Auth::id(),
             'event' => $event,
             'auditable_type' => $auditable ? get_class($auditable) : null,
@@ -123,27 +129,31 @@ readonly class AuditLogger
             'ssn',
             'two_factor_secret',
             'two_factor_recovery_codes',
+            'remember_token',
         ];
 
-        foreach ($sensitiveKeys as $key) {
-            if (isset($data[$key])) {
+        foreach ($data as $key => $value) {
+            if (is_string($key) && in_array(strtolower($key), $sensitiveKeys, true)) {
                 $data[$key] = '[REDACTED]';
+            } elseif (is_array($value)) {
+                $data[$key] = $this->filterSensitiveData($value);
             }
         }
 
         return $data;
     }
 
-    /**
-     * Get audit logs for the current organization.
-     */
     public function query(): Builder
     {
         $query = AuditLog::query()->with(['user', 'organization']);
 
-        if ($organization = $this->tenantContext->getOrganization()) {
-            $query->where('organization_id', $organization->id);
-        }
+        $organizationId = $this->tenantContext->getOrganizationId();
+
+        // Without a tenant the query must return nothing rather than every
+        // organization's logs.
+        $organizationId
+            ? $query->where('organization_id', $organizationId)
+            : $query->whereRaw('1 = 0');
 
         return $query->latest();
     }

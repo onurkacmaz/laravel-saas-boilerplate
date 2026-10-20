@@ -13,23 +13,28 @@ class LoginController
     /**
      * Log in a user.
      *
+     * When two-factor authentication is enabled, a 202 response is returned
+     * with a short-lived challenge token (`data.token`) that must be sent to
+     * the `2fa/challenge` endpoint together with a TOTP or recovery code.
+     *
      * @throws InvalidCredentialsException
      */
     public function __invoke(LoginRequest $request, LoginUserHandler $handler)
     {
         [$user, $token] = $handler(
             command: new LoginUser(
-                email: $request->input('email'),
-                password: $request->input('password'),
+                email: (string) $request->input('email'),
+                password: (string) $request->input('password'),
             )
         );
 
-        if ($user->two_factor_enabled && $user->two_factor_verified) {
+        if ($token === null) {
             return $user->toResource(UserResource::class)->additional([
                 'status' => 'success',
-                'message' => '2FA enabled for this user. Please check your email for the OTP.',
+                'message' => 'Two-factor authentication required. Please provide the code from your authenticator app.',
                 'data' => [
                     'token' => $user->createJwtToken(),
+                    'two_factor_required' => true,
                 ],
             ])->response()->setStatusCode(Response::HTTP_ACCEPTED);
         }
@@ -37,6 +42,7 @@ class LoginController
         return $user->toResource(UserResource::class)->additional([
             'data' => [
                 'token' => $token,
+                'two_factor_required' => false,
             ],
             'status' => 'success',
             'message' => 'User logged in successfully',

@@ -2,6 +2,8 @@
 
 namespace Features\Acl\UpdateRole\Application;
 
+use Features\Acl\Shared\Support\AclRules;
+use Features\Acl\Shared\Support\SystemRoles;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -26,9 +28,9 @@ class UpdateRoleRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', 'unique:roles,slug,'.$roleId],
-            'description' => ['nullable', 'string', 'max:1000'],
-            'is_default' => ['nullable', 'boolean'],
+            'slug' => ['sometimes', 'nullable', 'string', 'max:255', 'alpha_dash', 'not_in:'.SystemRoles::OWNER, AclRules::uniqueSlug('roles', is_string($roleId) ? $roleId : null)],
+            'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
+            'is_default' => ['sometimes', 'boolean'],
         ];
     }
 }

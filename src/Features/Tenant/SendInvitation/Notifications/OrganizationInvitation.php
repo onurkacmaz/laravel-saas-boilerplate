@@ -30,18 +30,20 @@ class OrganizationInvitation extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $acceptUrl = config('app.frontend_url').'/invitations/'.$this->invitation->token.'/accept';
-        $rejectUrl = config('app.frontend_url').'/invitations/'.$this->invitation->token.'/reject';
+        $baseUrl = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/');
+        $acceptUrl = $baseUrl.'/invitations/'.$this->invitation->token.'/accept';
+        $rejectUrl = $baseUrl.'/invitations/'.$this->invitation->token.'/reject';
 
         $inviterName = $this->invitation->invitedBy?->name ?? 'Someone';
-        $orgName = $this->invitation->organization->name;
-        $roleName = $this->invitation->role->name ?? 'Member';
+        $orgName = $this->invitation->organization?->name ?? config('app.name');
+        $roleName = $this->invitation->role?->name ?? 'Member';
+        $expiresAt = $this->invitation->expires_at?->format('F j, Y');
 
         return (new MailMessage)
             ->subject("You're invited to join {$orgName}")
             ->greeting('Hello!')
             ->line("{$inviterName} has invited you to join **{$orgName}** as a **{$roleName}**.")
-            ->line("This invitation will expire on {$this->invitation->expires_at->format('F j, Y')}.")
+            ->when($expiresAt, fn (MailMessage $message) => $message->line("This invitation will expire on {$expiresAt}."))
             ->action('Accept Invitation', $acceptUrl)
             ->line('If you do not wish to join this organization, you can decline the invitation:')
             ->line("[Decline Invitation]({$rejectUrl})")
@@ -59,8 +61,8 @@ class OrganizationInvitation extends Notification
         return [
             'invitation_id' => $this->invitation->id,
             'organization_id' => $this->invitation->organization_id,
-            'organization_name' => $this->invitation->organization->name,
-            'role' => $this->invitation->role->name,
+            'organization_name' => $this->invitation->organization?->name,
+            'role' => $this->invitation->role?->name,
             'expires_at' => $this->invitation->expires_at,
         ];
     }

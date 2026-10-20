@@ -31,9 +31,9 @@ class SubscriptionCreatedNotification extends Notification implements ShouldQueu
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $planName = $this->subscription->plan->name;
-        $organizationName = $this->subscription->organization->name;
-        $dashboardUrl = config('app.frontend_url').'/organizations/'.$this->subscription->organization_id.'/dashboard';
+        $planName = ($this->subscription->plan?->name ?? config('app.name'));
+        $organizationName = ($this->subscription->organization?->name ?? config('app.name'));
+        $dashboardUrl = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/organizations/'.$this->subscription->organization_id.'/dashboard';
 
         $message = (new MailMessage)
             ->subject("Welcome to {$planName}!")
@@ -46,10 +46,10 @@ class SubscriptionCreatedNotification extends Notification implements ShouldQueu
         }
 
         $message->line('Here are your plan benefits:')
-            ->line("- **Users:** {$this->formatLimit($this->subscription->plan->limits['users'] ?? null)}")
-            ->line("- **Storage:** {$this->formatLimit($this->subscription->plan->limits['storage'] ?? null, 'MB')}")
-            ->line("- **API Calls:** {$this->formatLimit($this->subscription->plan->limits['api_calls'] ?? null)}")
-            ->line("- **Projects:** {$this->formatLimit($this->subscription->plan->limits['projects'] ?? null)}")
+            ->line("- **Users:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['users'] ?? null)}")
+            ->line("- **Storage:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['storage'] ?? null, 'MB')}")
+            ->line("- **API Calls:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['api_calls'] ?? null)}")
+            ->line("- **Projects:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['projects'] ?? null)}")
             ->action('Go to Dashboard', $dashboardUrl)
             ->line('If you have any questions, our support team is here to help!')
             ->salutation('Best regards, '.config('app.name'));
@@ -66,8 +66,8 @@ class SubscriptionCreatedNotification extends Notification implements ShouldQueu
     {
         return [
             'subscription_id' => $this->subscription->id,
-            'plan_name' => $this->subscription->plan->name,
-            'organization_name' => $this->subscription->organization->name,
+            'plan_name' => $this->subscription->plan?->name,
+            'organization_name' => ($this->subscription->organization?->name ?? config('app.name')),
             'trial_ends_at' => $this->subscription->trial_ends_at,
             'starts_at' => $this->subscription->starts_at,
         ];

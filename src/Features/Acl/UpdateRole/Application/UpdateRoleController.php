@@ -9,17 +9,16 @@ use Illuminate\Http\JsonResponse;
 class UpdateRoleController
 {
     /**
-     * Update a role by ID.
+     * Update a role.
+     *
+     * Only the fields present in the request are updated. System roles are read-only.
      */
     public function __invoke(UpdateRoleRequest $request, string $roleId, UpdateRoleHandler $handler): JsonResponse
     {
         $role = $handler(
             command: new UpdateRole(
                 roleId: $roleId,
-                name: $request->input('name'),
-                slug: $request->input('slug'),
-                description: $request->input('description'),
-                isDefault: $request->boolean('is_default')
+                attributes: $request->validated(),
             )
         );
 

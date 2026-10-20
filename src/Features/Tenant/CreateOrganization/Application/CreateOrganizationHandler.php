@@ -3,47 +3,35 @@
 namespace Features\Tenant\CreateOrganization\Application;
 
 use App\Models\Organization;
-use App\Models\Role;
 use App\Models\User;
+use Features\Acl\Shared\Support\SystemRoles;
 use Features\Tenant\CreateOrganization\Events\OrganizationCreated;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
+use Features\Tenant\Shared\Support\OrganizationSlug;
+use Illuminate\Support\Facades\DB;
 
 class CreateOrganizationHandler
 {
-    public function __invoke(CreateOrganization $command): Model|Organization
+    public function __invoke(CreateOrganization $command): Organization
     {
-        $owner = User::query()->findOrFail($command->userId);
+        $organization = DB::transaction(function () use ($command) {
+            $owner = User::query()->findOrFail($command->userId);
 
-        $organization = Organization::query()->create(
-            attributes: [
+            /** @var Organization $organization */
+            $organization = Organization::query()->create([
                 'name' => $command->name,
-                'slug' => $this->generateSlug($command->name),
+                'slug' => OrganizationSlug::generate($command->name),
                 'description' => $command->description,
-                'owner_id' => $command->userId,
+                'owner_id' => $owner->id,
                 'is_active' => true,
-            ]
-        );
+            ]);
 
-        $ownerRole = Role::query()
-            ->where('slug', 'owner')
-            ->firstOrFail();
+            $organization->addUser($owner, SystemRoles::ensure(SystemRoles::OWNER)->id);
 
-        $organization->addUser($owner, $ownerRole->id);
+            return $organization;
+        });
 
         event(new OrganizationCreated($organization));
 
         return $organization->load(['owner', 'users']);
-    }
-
-    private function generateSlug(string $name): string
-    {
-        $slug = Str::slug($name);
-
-        if (Organization::query()->where('slug', $slug)->exists()) {
-            return $this->generateSlug($name.'-'.Str::random(4));
-        }
-
-        return $slug;
     }
 }

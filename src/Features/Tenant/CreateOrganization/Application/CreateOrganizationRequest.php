@@ -20,6 +20,13 @@ class CreateOrganizationRequest extends FormRequest
      *
      * @return array<string, ValidationRule|array|string>
      */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('name'))) {
+            $this->merge(['name' => trim($this->input('name'))]);
+        }
+    }
+
     public function rules(): array
     {
         return [

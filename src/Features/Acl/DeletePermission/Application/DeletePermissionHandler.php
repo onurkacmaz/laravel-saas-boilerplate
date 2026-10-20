@@ -3,11 +3,17 @@
 namespace Features\Acl\DeletePermission\Application;
 
 use App\Models\Permission;
+use Features\Acl\Shared\Support\AclRules;
 
 class DeletePermissionHandler
 {
     public function __invoke(DeletePermission $command): void
     {
-        Permission::query()->where('id', $command->permissionId)->delete();
+        $permission = Permission::query()->findOrFail($command->permissionId);
+
+        AclRules::ensureMutable($permission);
+
+        $permission->roles()->detach();
+        $permission->delete();
     }
 }

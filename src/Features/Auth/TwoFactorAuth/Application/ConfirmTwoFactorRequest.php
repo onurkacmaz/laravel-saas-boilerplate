@@ -23,7 +23,7 @@ class ConfirmTwoFactorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => ['required', 'string', 'min:6', 'max:6'],
+            'code' => ['required', 'string', 'digits:6'],
         ];
     }
 }

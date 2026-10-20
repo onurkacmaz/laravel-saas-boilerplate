@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Features\Tenant\Shared\Enums\InvitationStatus;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -75,7 +77,7 @@ class Invitation extends Model
 
     public function role(): BelongsTo
     {
-        return $this->belongsTo(Role::class);
+        return $this->belongsTo(Role::class)->withoutGlobalScopes();
     }
 
     public function invitedBy(): BelongsTo
@@ -92,8 +94,17 @@ class Invitation extends Model
 
     public function isExpired(): bool
     {
-        return $this->statusEnum() === InvitationStatus::EXPIRED
-            || ($this->expires_at && $this->expires_at->isPast());
+        $status = $this->statusEnum();
+
+        if ($status === InvitationStatus::EXPIRED) {
+            return true;
+        }
+
+        // Only an invitation that is still waiting for an answer can lapse;
+        // accepted/rejected/canceled invitations keep their final status.
+        return $status === InvitationStatus::PENDING
+            && $this->expires_at
+            && $this->expires_at->isPast();
     }
 
     public function isAccepted(): bool
@@ -118,7 +129,32 @@ class Invitation extends Model
 
     public function markAsExpired(): void
     {
+        if ($this->statusEnum() !== InvitationStatus::PENDING) {
+            return;
+        }
+
         $this->update(['status' => InvitationStatus::EXPIRED->value]);
+    }
+
+    /**
+     * Invitations are matched against user e-mails case-insensitively.
+     */
+    protected function email(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => $value === null ? null : User::normalizeEmail($value),
+        );
+    }
+
+    /**
+     * Pending invitations that have not expired yet.
+     */
+    public function scopeOpen(Builder $query): Builder
+    {
+        return $query->where('status', InvitationStatus::PENDING->value)
+            ->where(function (Builder $query) {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            });
     }
 
     public function statusEnum(): InvitationStatus

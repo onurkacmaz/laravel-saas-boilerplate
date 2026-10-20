@@ -14,8 +14,12 @@ use Features\Acl\GetRoles\Providers\GetRolesServiceProvider;
 use Features\Acl\RemoveFromUser\Providers\RemoveFromUserServiceProvider;
 use Features\Acl\UpdatePermission\Providers\UpdatePermissionServiceProvider;
 use Features\Acl\UpdateRole\Providers\UpdateRoleServiceProvider;
+use Features\Auth\ChangePassword\Providers\ChangePasswordServiceProvider;
+use Features\Auth\EmailVerification\Providers\EmailVerificationServiceProvider;
 use Features\Auth\GetUser\Providers\GetUserServiceProvider;
 use Features\Auth\Login\Providers\LoginServiceProvider;
+use Features\Auth\Logout\Providers\LogoutServiceProvider;
+use Features\Auth\PasswordReset\Providers\PasswordResetServiceProvider;
 use Features\Auth\Register\Providers\RegisterServiceProvider;
 use Features\Auth\TwoFactorAuth\Providers\TwoFactorAuthServiceProvider;
 use Features\Compliance\GdprCancelDeletion\Providers\GdprCancelDeletionServiceProvider;
@@ -54,6 +58,10 @@ return [
     RegisterServiceProvider::class,
     TwoFactorAuthServiceProvider::class,
     GetUserServiceProvider::class,
+    LogoutServiceProvider::class,
+    PasswordResetServiceProvider::class,
+    EmailVerificationServiceProvider::class,
+    ChangePasswordServiceProvider::class,
     CreateWebhookServiceProvider::class,
     UpdateWebhookServiceProvider::class,
     DeleteWebhookServiceProvider::class,
@@ -82,7 +90,7 @@ return [
     GdprCancelDeletionServiceProvider::class,
     GdprRequestDeletionServiceProvider::class,
     Features\Audit\AuditServiceProvider::class,
-    GetpermissionsServiceProvider::class,
+    GetPermissionsServiceProvider::class,
     GetPermissionServiceProvider::class,
     CreatePermissionServiceProvider::class,
     DeletePermissionServiceProvider::class,
