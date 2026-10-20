@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Disabling 2FA and immediate GDPR deletion now require the current password.
 - Destructive GDPR actions no longer use `GET`.
 - Audit logs redact sensitive keys at any depth and no longer store query strings.
+- Updated dependencies with published security advisories (Laravel framework, Guzzle, league/commonmark, Symfony components, PHPUnit). `firebase/php-jwt` was moved to `^7.0`; the 2FA signing key already satisfies its 256-bit minimum.
 
 ### Fixed
 - The "request deletion" and "cancel deletion" GDPR endpoints were swapped. The GDPR delete flow called relations that do not exist.
