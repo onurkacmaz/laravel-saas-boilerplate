@@ -22,7 +22,7 @@ it('retrieves organization settings', function (): void {
         ->withHeader('X-Organization-Id', $this->organization->id)
         ->getJson("/api/v1/organizations/{$this->organization->id}/settings");
 
-    $response->assertStatus(201)
+    $response->assertOk()
         ->assertJsonStructure([
             'data' => [
                 'id',
@@ -49,12 +49,12 @@ it('creates default settings when none exist', function (): void {
         ->withHeader('X-Organization-Id', $this->organization->id)
         ->getJson("/api/v1/organizations/{$this->organization->id}/settings");
 
-    $response->assertStatus(201);
+    $response->assertOk();
 
     expect(OrganizationSetting::where('organization_id', $this->organization->id)->exists())->toBeTrue()
-        ->and($response->json('data.timezone'))->toBe('Europe/Istanbul')
-        ->and($response->json('data.locale'))->toBe('tr')
-        ->and($response->json('data.currency'))->toBe('TRY');
+        ->and($response->json('data.timezone'))->toBe('UTC')
+        ->and($response->json('data.locale'))->toBe('en')
+        ->and($response->json('data.currency'))->toBe('USD');
 });
 
 it('requires authentication to access settings', function (): void {

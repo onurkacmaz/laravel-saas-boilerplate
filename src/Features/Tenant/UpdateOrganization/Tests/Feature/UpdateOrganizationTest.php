@@ -11,7 +11,7 @@ uses(TestCase::class, RefreshDatabase::class);
 beforeEach(function (): void {
     $this->user = User::factory()->create();
     $this->organization = Organization::factory()->create(['name' => 'Old Name']);
-    $this->role = Role::factory()->create(['organization_id' => $this->organization->id]);
+    $this->role = Role::factory()->create(['organization_id' => $this->organization->id, 'slug' => 'admin']);
 
     $this->user->organizations()->attach($this->organization->id, ['role_id' => $this->role->id]);
 });

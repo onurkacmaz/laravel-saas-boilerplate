@@ -82,8 +82,9 @@ describe('Webhook Delivery', function (): void {
         $delivery = $webhook->deliveries()->first();
 
         expect($delivery)->not()->toBeNull();
-        expect($delivery->status)->toBe('success');
+        expect($delivery->status)->toBe('failed');
         expect($delivery->status_code)->toBe(400);
+        expect($delivery->response_body)->toContain('Bad Request');
     });
 
     it('includes HMAC signature header when secret is configured', function (): void {

@@ -41,7 +41,28 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/**
+ * Create an organization and attach a new user to it with an organization
+ * scoped role of the given slug ("owner", "admin", "member"...).
+ *
+ * @return array{0: \App\Models\User, 1: \App\Models\Organization, 2: \App\Models\Role}
+ */
+function userInOrganization(string $roleSlug = 'member', ?\App\Models\Organization $organization = null): array
 {
-    // ..
+    $user = \App\Models\User::factory()->create();
+    $organization ??= \App\Models\Organization::factory()->create();
+
+    $role = \App\Models\Role::query()->withoutOrganization()
+        ->where('organization_id', $organization->id)
+        ->where('slug', $roleSlug)
+        ->first()
+        ?? \App\Models\Role::factory()->create([
+            'organization_id' => $organization->id,
+            'slug' => $roleSlug,
+            'name' => ucfirst($roleSlug),
+        ]);
+
+    $organization->users()->attach($user->id, ['role_id' => $role->id]);
+
+    return [$user, $organization, $role];
 }
