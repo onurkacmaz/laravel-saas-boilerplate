@@ -4,7 +4,9 @@ use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Infrastructure\Security\Middleware\SecurityHeaders;
 
 uses(RefreshDatabase::class);
 
@@ -59,8 +61,8 @@ it('sends strict security headers on API responses', function (): void {
 it('adds HSTS for secure production requests', function (): void {
     app()->detectEnvironment(fn () => 'production');
 
-    $response = (new \Infrastructure\Security\Middleware\SecurityHeaders)->handle(
-        \Illuminate\Http\Request::create('https://api.example.test/api/v1/plans'),
+    $response = (new SecurityHeaders)->handle(
+        Request::create('https://api.example.test/api/v1/plans'),
         fn () => response('ok')
     );
 

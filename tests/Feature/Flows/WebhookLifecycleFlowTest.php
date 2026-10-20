@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -18,7 +19,7 @@ it('delivers organization events to a registered endpoint', function (): void {
     }]);
 
     [$admin, $organization] = userInOrganization('admin');
-    $role = \App\Models\Role::factory()->create(['organization_id' => $organization->id, 'slug' => 'member']);
+    $role = Role::factory()->create(['organization_id' => $organization->id, 'slug' => 'member']);
     $tenant = fn () => $this->actingAs($admin, 'sanctum')->withHeader('X-Organization-Id', $organization->id);
 
     $webhook = $tenant()->postJson('/api/v1/webhooks', [
