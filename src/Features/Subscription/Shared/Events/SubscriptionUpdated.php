@@ -3,13 +3,12 @@
 namespace Features\Subscription\Shared\Events;
 
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
-use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 class SubscriptionUpdated
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable, SerializesModels;
 
     public function __construct(
         public Subscription $subscription

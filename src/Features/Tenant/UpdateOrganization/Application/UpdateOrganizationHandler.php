@@ -3,42 +3,31 @@
 namespace Features\Tenant\UpdateOrganization\Application;
 
 use App\Models\Organization;
+use Features\Tenant\Shared\Support\OrganizationSlug;
 use Features\Tenant\UpdateOrganization\Events\OrganizationUpdated;
-use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Str;
 
 class UpdateOrganizationHandler
 {
-    public function __invoke(UpdateOrganization $command): Organization|Model
+    public function __invoke(UpdateOrganization $command): Organization
     {
         $organization = Organization::query()->findOrFail($command->organizationId);
 
-        if (isset($command->name)) {
-            $command->slug = $this->generateSlug($command->name);
+        $attributes = array_intersect_key($command->attributes, array_flip(['name', 'description', 'is_active']));
+
+        // Partial update: absent fields keep their current value. The slug only
+        // changes when the name actually changes.
+        if (isset($attributes['name']) && $attributes['name'] !== $organization->name) {
+            $attributes['slug'] = OrganizationSlug::generate($attributes['name'], $organization->id);
         }
 
-        $organization?->update([
-            'name' => $command->name,
-            'slug' => $command->slug,
-            'description' => $command->description,
-            'is_active' => $command->isActive,
-        ]);
+        $organization->fill($attributes);
 
-        $organization?->fresh();
+        if ($organization->isDirty()) {
+            $organization->save();
 
-        event(new OrganizationUpdated($organization));
-
-        return $organization?->fresh();
-    }
-
-    private function generateSlug(string $name): string
-    {
-        $slug = Str::slug($name);
-
-        if (Organization::query()->where('slug', $slug)->exists()) {
-            return $this->generateSlug($name.'-'.Str::random(4));
+            event(new OrganizationUpdated($organization));
         }
 
-        return $slug;
+        return $organization->fresh();
     }
 }

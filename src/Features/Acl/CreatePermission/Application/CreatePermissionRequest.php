@@ -2,6 +2,7 @@
 
 namespace Features\Acl\CreatePermission\Application;
 
+use Features\Acl\Shared\Support\AclRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -24,7 +25,7 @@ class CreatePermissionRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', 'unique:permissions,slug'],
+            'slug' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_.:-]+$/', AclRules::uniqueSlug('permissions')],
             'description' => ['nullable', 'string', 'max:1000'],
         ];
     }

@@ -1,6 +1,9 @@
 # SaaS Boilerplate
 
-> The open-source multi-tenant SaaS starter kit built with Laravel 12, modular DDD features, and production-ready billing, compliance, and security tooling.
+> An open-source, API-first, multi-tenant SaaS starter kit built with Laravel 12. It ships organizations, roles and permissions, Stripe billing, 2FA, outgoing webhooks, audit logs and GDPR tooling, organized as vertical feature slices.
+
+[![CI](https://github.com/onurkacmaz/laravel-saas-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/onurkacmaz/laravel-saas-boilerplate/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## Table of Contents
 - [Overview](#overview)
@@ -8,203 +11,298 @@
 - [Architecture](#architecture)
 - [Requirements](#requirements)
 - [Getting Started](#getting-started)
-  - [Manual installation](#manual-installation)
-  - [Docker with Laravel Sail](#docker-with-laravel-sail)
+- [Multi-tenancy & Authorization](#multi-tenancy--authorization)
+- [Authentication](#authentication)
+- [Billing](#billing)
+- [Outgoing Webhooks](#outgoing-webhooks)
 - [Environment & Configuration](#environment--configuration)
-- [Developer Workflow](#developer-workflow)
 - [Background Jobs & Scheduling](#background-jobs--scheduling)
 - [Testing](#testing)
 - [API Reference](#api-reference)
 - [Contributing](#contributing)
+- [Security](#security)
 - [License](#license)
-- [Community](#community)
 
 ## Overview
 
-SaaS Boilerplate is a Laravel 12 application that packages the recurring building blocks of a multi-tenant subscription product: tenant-aware API endpoints, flexible roles and permissions, Stripe-powered billing, compliance workflows, and developer-friendly tooling. The codebase follows a modular Domain-Driven Design (DDD) approach, where each capability lives under `src/Features`, and shared infrastructure such as tenancy, rate limiting, and security middleware is isolated under `src/Infrastructure`.
+SaaS Boilerplate packages the building blocks that every multi-tenant subscription product needs:
 
-The project is maintained as an open-source reference implementation. You are encouraged to fork it, adapt it to your domain, and contribute improvements back to the community.
+- tenant-aware JSON API endpoints,
+- organization-scoped roles and permissions,
+- Stripe billing through Laravel Cashier,
+- compliance and security tooling.
+
+Each capability lives in its own slice under `src/Features`. Shared infrastructure, such as tenancy, rate limiting and security middleware, lives under `src/Infrastructure`.
+
+The project is maintained as a reference implementation: fork it, adapt it to your domain and contribute improvements back.
 
 ## Feature Highlights
 
-**Tenancy & Identity**
-- Organization isolation handled through a tenant context (`SetTenantContext` middleware) and the `X-Organization-Id` header.
-- Invitation lifecycle (send, accept, reject, cancel) with email notifications and status tracking.
-- Organization settings (locale, timezone, currency) with membership management flows to invite, add, remove, and assign roles to members.
-- Role & permission management scoped per tenant, including default roles and automatic assignment on user creation.
+**Tenancy & identity**
+- Organizations with owner, admin and member roles. The tenant is selected per request with the `X-Organization-Id` header.
+- Organization-wide actions require an admin or owner role. Deleting an organization requires the owner.
+- Every `{organization}` URL is checked against the tenant header, so a member of one organization cannot act on another.
+- Invitation lifecycle (send, accept, reject, cancel, expire) with e-mail notifications. E-mails are compared case-insensitively.
+- Per-organization settings: locale, timezone, currency, notification preferences and feature flags.
+- Custom roles and permissions per organization, on top of read-only system roles.
 
-**Billing & Monetization**
-- Stripe integration via Laravel Cashier with monthly and yearly plans, trial periods, and plan upgrades/downgrades.
-- Usage tracking, plan-based resource limits (`CheckResourceLimit` middleware), and adaptive API rate limiting (`PlanBasedRateLimitMiddleware`).
-- Stripe webhook ingestion and notification pipeline for payment events, plus proactive trial ending and payment failure alerts.
+**Authentication**
+- Sanctum API tokens with a configurable lifetime.
+- Logout from the current device or from all devices.
+- Password reset, e-mail verification and password change.
+- TOTP two-factor authentication (RFC 6238), compatible with any authenticator app:
+  - one-time recovery codes,
+  - replay protection for codes,
+  - short-lived signed challenge tokens.
+- Brute-force protection on login, registration, password reset and the 2FA challenge.
 
-**Security & Compliance**
-- Authentication flows using Sanctum personal access tokens, optional JWT hand-off for 2FA confirmation, and email verification.
-- Two-Factor Authentication with recovery codes and status notifications.
-- Security middleware for HTTP headers, IP allow-listing, and suspicious activity checks.
-- GDPR tooling to request exports, cancel requests, perform deletions, and deliver data downloads.
-- Audit logging middleware that records actor, organization context, and payload changes.
+**Billing**
+- Stripe Checkout through Laravel Cashier, plus free plans that need no Stripe account.
+- Trials, granted once per organization.
+- Plan-based resource limits (`limit:<resource>` middleware) and plan-based API rate limiting (`rate.limit` middleware). Rate-limit headers are included in responses.
+- A Stripe webhook handler that keeps local subscriptions and plans in sync.
+- Payment, subscription and trial notifications.
 
-**Developer Experience**
-- Modular feature scaffolding through `php artisan make:feature` and auto-loaded routes per module.
-- API documentation generated with Dedoc Scramble, available under `/docs/api`.
-- Laravel Sail docker-compose stack (PostgreSQL, Redis, and an optional RabbitMQ broker) for local parity with production dependencies.
-- Code quality tooling: Pint for formatting, PHPStan for static analysis, Pest-powered automated tests.
+**Security & compliance**
+- Signed outgoing webhooks with SSRF protection, delivery logs and automatic retries.
+- Audit trail of every successful state-changing request, with sensitive fields redacted.
+- GDPR tooling:
+  - data export and download,
+  - scheduled deletion with a grace period,
+  - immediate erasure, which requires the password and anonymizes the account.
+- Security headers, an IP allow-list middleware (CIDR ranges supported) and an optional suspicious-activity middleware.
+
+**Developer experience**
+- `php artisan make:feature Module:Feature` scaffolds a complete slice.
+- OpenAPI documentation generated by [Scramble](https://scramble.dedoc.co) at `/docs/api`.
+- Laravel Sail stack with PostgreSQL, Redis and an optional RabbitMQ container.
+- Pest test suite, Pint formatting and GitHub Actions CI.
 
 ## Architecture
 
-- `app/Models` – foundational Eloquent models (users, organizations, roles, permissions, tokens).
-- `src/Features/<Module>/<Feature>` – self-contained feature slices that bundle commands, handlers, controllers, requests, and routes.
-- `src/Infrastructure` – shared middleware, tenant services, caching helpers, and rate limiting strategies.
-- `tests/Feature` & `tests/Unit` – Pest test suites covering authentication, rate limiting, notifications, and more.
+```
+app/Models                         Core Eloquent models (users, organizations, roles, permissions…)
+src/Infrastructure                 Cross-cutting concerns
+├── Tenant                         TenantContext, tenant middleware, BelongsToOrganization scope
+├── RateLimiting                   Plan-aware rate limiter
+├── Security                       Security headers, IP allow-list, suspicious-activity checks
+└── Http, Support                  API error/pagination helpers, route loading
+src/Features/<Module>/<Feature>    Vertical slices
+├── Application                    Command (DTO), Handler, Controller, FormRequest
+├── Events / Listeners             Domain events raised by the slice
+├── Providers                      Registers routes, listeners and commands
+├── Routes/api.php                 The slice's routes
+└── Tests                          Pest tests for the slice
+tests/Feature                      Cross-cutting tests (tenant isolation, auth flows, GDPR…)
+```
 
-`bootstrap/app.php` wires middleware aliases for tenancy, subscription enforcement, plan-based throttling, and security headers. `AppServiceProvider` auto-loads package migrations, configures Cashier models, and augments the generated OpenAPI schema with the required tenant headers.
+Modules: `Auth`, `Tenant`, `Acl`, `Subscription`, `Webhooks`, `Audit`, `Compliance`.
 
 ## Requirements
 
-- PHP 8.4 with extensions: OpenSSL, BCMath, Ctype, Fileinfo, JSON, Mbstring, PDO (pgsql), Tokenizer.
-- Composer 2.6 or newer.
-- Node.js 20+ and npm (or another compatible package manager).
-- PostgreSQL 15+ (other drivers can be used with matching `.env` configuration).
-- Redis 7+ for caching and queues (database queues work but are not recommended for production).
-- Stripe account with API keys and a webhook signing secret.
-- Docker Desktop (optional) to use the bundled Laravel Sail stack (PostgreSQL, Redis, RabbitMQ).
+- PHP 8.4 with the BCMath, Ctype, Fileinfo, JSON, Mbstring, OpenSSL, PDO and Tokenizer extensions
+- Composer 2.6+
+- PostgreSQL 15+ (MySQL and SQLite also work with the matching `.env` settings)
+- Redis 7+ (recommended for cache and queues in production)
+- A Stripe account for paid plans (optional for local development)
 
 ## Getting Started
 
 ### Manual installation
 
-1. Clone the repository and install dependencies:
-   ```bash
-   git clone https://github.com/<your-account>/saas.git
-   cd saas
-   composer install
-   npm install
-   ```
-2. Bootstrap environment variables:
-   ```bash
-   cp .env.example .env
-   php artisan key:generate
-   ```
-   Update `.env` with database credentials, queue driver, Stripe keys, mail settings, and allowed CORS origins (`CORS_ALLOWED_ORIGINS`).
-3. Prepare the database:
-   ```bash
-   php artisan migrate
-   ```
-4. Run the application:
-   ```bash
-   php artisan serve
-   npm run dev
-   ```
-   Alternatively, use `composer dev` to launch the HTTP server, queue listener, log tailing, and Vite in a single process supervisor.
-5. Start background workers as needed:
-   ```bash
-   php artisan queue:work
-   php artisan schedule:work
-   ```
+```bash
+git clone https://github.com/onurkacmaz/laravel-saas-boilerplate.git
+cd laravel-saas-boilerplate
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --seed      # creates the system roles and a default plan catalogue
+php artisan serve
+```
+
+Run the background processes in separate terminals, or use `composer dev`:
+
+```bash
+php artisan queue:work
+php artisan schedule:work
+```
 
 ### Docker with Laravel Sail
 
-1. Install dependencies and copy the environment file:
-   ```bash
-   composer install
-   cp .env.example .env
-   ```
-2. Adjust `.env` to use the Sail services (`DB_HOST=pgsql`, `REDIS_HOST=redis`, `QUEUE_CONNECTION=database` or `redis`, RabbitMQ credentials, etc.).
-3. Boot the containers:
-   ```bash
-   ./vendor/bin/sail up -d
-   ```
-4. Run setup commands inside the containers:
-   ```bash
-   ./vendor/bin/sail artisan key:generate
-   ./vendor/bin/sail artisan migrate --seed
-   ./vendor/bin/sail npm install
-   ./vendor/bin/sail npm run dev
-   ```
-5. Access the app at `http://localhost` (API) and `http://localhost:5173` (Vite dev server). RabbitMQ management UI is exposed on `http://localhost:15672`.
+```bash
+composer install
+cp .env.example .env            # DB_HOST=pgsql, REDIS_HOST=redis
+./vendor/bin/sail up -d
+./vendor/bin/sail artisan key:generate
+./vendor/bin/sail artisan migrate --seed
+```
 
-## Environment & Configuration
+The API is served at `http://localhost`. The RabbitMQ management UI is at `http://localhost:15672`.
 
-Key environment toggles:
+## Multi-tenancy & Authorization
 
-- `APP_URL`, `CORS_ALLOWED_ORIGINS` – align API URLs with your frontend.
-- `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` – database settings.
-- `CACHE_STORE`, `SESSION_DRIVER`, `QUEUE_CONNECTION`, and `REDIS_*` – cache and queue backends (Redis recommended).
-- `RABBITMQ_*` – connection placeholders for the bundled RabbitMQ container; install a compatible queue driver before switching away from database/Redis queues.
-- `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` – API credentials; plan-specific IDs map to `STRIPE_PRODUCT_*` and `STRIPE_PRICE_*` variables.
-- `JWT_SECRET` – signing key for short-lived JWTs issued during 2FA.
-
-Tenanted API requests must include the `X-Organization-Id` header. When omitted, the platform falls back to the user’s personal context and free-tier limits.
-
-## Developer Workflow
-
-- Scaffold new vertical slices with `php artisan make:feature Module:Action`.
-- Reset data during development using `php artisan migrate:fresh --seed`.
-- Format code with `./vendor/bin/pint` and run static analysis via `./vendor/bin/phpstan analyse`.
-- Stream structured logs with `php artisan pail --timeout=0`.
-- Use `composer dev` to run the HTTP server, queue listener, real-time log viewer, and Vite concurrently.
-
-## Background Jobs & Scheduling
-
-- Queue consumers: run `php artisan queue:work` (or `./vendor/bin/sail artisan queue:work`) to process notifications, audits, and other asynchronous jobs.
-- Scheduler: add `php artisan schedule:run` to your system cron to dispatch recurring commands such as `subscriptions:trial-ending` and `gdpr:process-deletions`.
-- RabbitMQ support: the Sail stack ships a RabbitMQ container, but the application defaults to database/Redis queues until you install a driver (for example, `vyuldashev/laravel-queue-rabbitmq`) and update `QUEUE_CONNECTION`.
-
-## Testing
-
-Run the full suite:
+Every tenant-aware request sends the organization it acts on:
 
 ```bash
-composer test
-```
-
-The test command clears cached configuration and executes Pest feature/unit tests (`php artisan test`). You can target specific tests with:
-
-```bash
-./vendor/bin/pest tests/Feature/RateLimitingTest.php
-./vendor/bin/pest --filter=subscription
-```
-
-Configure a dedicated test database in `.env.testing` for parallel execution (`php artisan test --parallel`).
-
-## API Reference
-
-OpenAPI documentation is generated automatically by Dedoc Scramble. Once the application is running, visit:
-
-```
-http://localhost:8000/docs/api
-```
-
-Every tenant-aware endpoint requires the `X-Organization-Id` header. Example request:
-
-```bash
-curl -X GET http://localhost:8000/api/v1/user \
-  -H "Authorization: Bearer <sanctum-token>" \
+curl http://localhost/api/v1/invitations \
+  -H "Authorization: Bearer <token>" \
   -H "X-Organization-Id: <organization-uuid>"
 ```
 
-Responses include standard rate-limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`) based on the active subscription. Re-generate the spec with `php artisan scramble:generate` before publishing SDKs or public docs.
+The tenant context is only set when the authenticated user belongs to that organization. Requests without a valid context get `403`.
+
+Middleware available to routes:
+
+| Alias | Purpose |
+|-------|---------|
+| `tenant.context` | Resolves the organization from `X-Organization-Id`. |
+| `tenant.required` | Requires a tenant. Also rejects URLs whose `{organization}` differs from the header. |
+| `tenant.role:admin` | Requires the admin or owner role in the current organization. |
+| `tenant.role:owner` | Requires the organization owner. |
+| `subscription.required` | Requires an active subscription (`402` otherwise). |
+| `limit:<resource>` | Enforces a plan limit, for example `limit:users`. |
+| `rate.limit` | Plan-based rate limiting. |
+| `ip.whitelist:1.2.3.4,10.0.0.0/8` | Allows only the listed IPs or CIDR ranges. |
+| `security.check` | Optional heuristic blocking of suspicious payloads. |
+
+### Roles
+
+The seeder creates three **system roles**. They are shared by every organization and are read-only through the API:
+
+| Role | Who | Can |
+|------|-----|-----|
+| `owner` | The user who created the organization (`owner_id`). | Everything, including deleting the organization. This role can never be assigned through the API. |
+| `admin` | Assigned by an owner or admin. | Manage members, invitations, roles, settings, webhooks, billing and audit logs. |
+| `member` | Everyone else; the default role. | Read the organization and its settings. |
+
+Organizations can also create their own roles and permissions:
+- An admin cannot remove or demote another admin.
+- Nobody can remove the owner or change the owner's role.
+- A role that is still assigned to members or pending invitations cannot be deleted.
+
+## Authentication
+
+| Step | Endpoint |
+|------|----------|
+| Register | `POST /api/v1/auth/register` (sends a verification e-mail and creates a personal organization) |
+| Log in | `POST /api/v1/auth/login` → `200` with an API token, or `202` with a 2FA challenge token |
+| Complete 2FA | `POST /api/v1/2fa/challenge` with `jwt`, plus `code` or `recovery_code` |
+| Log out | `POST /api/v1/auth/logout` (`all_devices=true` to revoke every token) |
+| Password reset | `POST /api/v1/auth/forgot-password`, then `POST /api/v1/auth/reset-password` |
+| Verify e-mail | Signed link from the e-mail; resend with `POST /api/v1/auth/email/verification-notification` |
+| Change password | `PUT /api/v1/auth/password` |
+
+To enable 2FA:
+1. Call `POST /2fa/enable` and scan the returned `otpauth://` URI.
+2. Confirm with `POST /2fa/confirm` and a code from the app. The response contains the recovery codes.
+3. To disable 2FA, call `POST /2fa/disable`. This requires the current password.
+
+E-mail links (invitations, password reset, e-mail verification, billing) point to `FRONTEND_URL`.
+
+## Billing
+
+1. Configure `STRIPE_KEY`, `STRIPE_SECRET` and `STRIPE_WEBHOOK_SECRET`.
+2. Seed the plans, setting `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY` for the paid ones.
+3. Point a Stripe webhook to `POST /stripe/webhook`. Signatures are verified when the secret is set.
+4. Call `POST /api/v1/subscriptions` with a `plan_id`:
+   - Paid plans return a Stripe Checkout URL.
+   - Free plans are activated immediately.
+   - New organizations are subscribed to the free plan automatically when one exists.
+
+## Outgoing Webhooks
+
+Admins register endpoints with `POST /api/v1/webhooks` and subscribe them to events. Subscriptions accept exact event names, wildcards such as `member.*`, or `*` for everything.
+
+| Group | Events |
+|-------|--------|
+| Organization | `organization.updated`, `organization.deleted` |
+| Members | `member.added`, `member.removed`, `member.role_updated` |
+| Invitations | `invitation.sent`, `invitation.accepted`, `invitation.rejected`, `invitation.canceled` |
+| Subscriptions | `subscription.created`, `subscription.updated`, `subscription.canceled` |
+| Payments | `payment.succeeded`, `payment.failed` |
+
+Each delivery is a JSON `POST` with the following headers:
+- `X-Webhook-Event`: the event name.
+- `X-Webhook-Delivery`: a unique delivery id.
+- `X-Webhook-Timestamp`: when the delivery was sent.
+- `X-Webhook-Signature`: `hex(hmac_sha256(secret, timestamp + "." + body))`.
+
+Verify deliveries on your side:
+
+```php
+$expected = hash_hmac('sha256', $request->header('X-Webhook-Timestamp').'.'.$request->getContent(), $secret);
+
+abort_unless(hash_equals($expected, $request->header('X-Webhook-Signature')), 401);
+```
+
+Delivery rules:
+- Only `2xx` responses count as delivered.
+- Failed deliveries are retried with backoff, up to `retry_limit` attempts.
+- Every attempt is listed under `GET /api/v1/webhooks/{id}/deliveries`.
+- URLs that resolve to private or reserved networks are rejected (SSRF protection).
+
+## Environment & Configuration
+
+| Variable | Description |
+|----------|-------------|
+| `APP_URL`, `FRONTEND_URL` | API URL, and the frontend URL used in e-mail links. |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed frontend origins. |
+| `DB_*`, `REDIS_*`, `QUEUE_CONNECTION`, `CACHE_STORE` | Infrastructure settings. |
+| `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | Stripe credentials. |
+| `STRIPE_PRODUCT_PRO`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` | Stripe identifiers used by the plan seeder. |
+| `AUTH_TOKEN_LIFETIME` | API token lifetime in minutes. |
+| `JWT_SECRET`, `JWT_TTL` | Signing key (defaults to `APP_KEY`) and lifetime in minutes of the 2FA challenge tokens. |
+| `ORGANIZATION_SETTINGS_DEFAULT_*` | Default timezone, locale and currency of new organizations. |
+| `INVITATION_EXPIRE_DAYS` | Invitation validity in days. |
+| `WEBHOOKS_ALLOW_PRIVATE_URLS` | Allows webhooks to private addresses. For local development only. |
+| `AUDIT_ENABLED` | Turns request auditing on or off. |
+| `GDPR_DELETION_GRACE_DAYS` | Days between a deletion request and the permanent deletion. |
+
+## Background Jobs & Scheduling
+
+- **Queue worker** (`php artisan queue:work`): delivers e-mails, notifications and webhooks.
+- **Scheduler** (`php artisan schedule:run`): run it every minute from cron. Scheduled commands:
+  - `subscriptions:trial-ending`: e-mails organizations whose trial ends in 3 days.
+  - `gdpr:process-deletions`: erases accounts whose deletion grace period has passed.
+  - `sanctum:prune-expired`: removes expired API tokens.
+
+## Testing
+
+```bash
+composer test                                   # full suite (in-memory SQLite)
+./vendor/bin/pest tests/Feature/Security        # a directory
+./vendor/bin/pest --filter="two-factor"         # by name
+composer lint                                   # Pint code style check
+php artisan test --coverage --min=90            # coverage gate used by CI (needs pcov or Xdebug)
+```
+
+End-to-end user journeys live in `tests/Feature/Flows`:
+- onboarding,
+- the 2FA lifecycle,
+- password recovery,
+- billing,
+- GDPR,
+- webhooks.
+
+`tests/Support/FakeStripeClient` replaces the Stripe SDK in billing tests.
+
+## API Reference
+
+The OpenAPI documentation is generated from the code by Scramble and is available at `/docs/api` (local environment only by default).
+
+API conventions:
+- Every endpoint answers with JSON, including errors.
+- Unknown resources return `404` with `{"status": "error", "message": "Resource not found."}`.
+- List endpoints accept `page` and `per_page` (at most 100).
 
 ## Contributing
 
-We welcome issues, discussions, and pull requests:
+Contributions are very welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md) first.
 
-1. Fork the repository and create a feature branch (`git checkout -b feature/my-improvement`).
-2. Follow the setup instructions above and reproduce your change with tests.
-3. Run quality gates locally: `./vendor/bin/pint`, `./vendor/bin/phpstan analyse`, and `composer test`.
-4. Commit using clear messages and reference related issues.
-5. Submit a pull request that explains the motivation and the impact. Screenshots or API examples are highly appreciated.
-6. By contributing you agree to uphold a welcoming, inclusive environment similar to the Contributor Covenant.
+## Security
 
-Feature ideas, bug reports, and security disclosures can also be shared through GitHub Issues. For sensitive topics (security, compliance), please reach out privately before filing a public ticket.
+Please report vulnerabilities privately, as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-This project is released under the MIT License, allowing commercial and private reuse with attribution. If your clone does not yet contain a `LICENSE` file, you can add the standard MIT template so downstream users have the full legal text.
-
-## Community
-
-- Open an issue to report bugs or request features.
-- Share feedback and success stories through discussions or pull requests.
-- Star the repository if it helps you build your next SaaS product.
+Released under the [MIT License](LICENSE).

@@ -64,18 +64,19 @@ it('throttles unusual request rates', function (): void {
         ->with('blocked_ip:127.0.0.1')
         ->andReturn(false);
 
-    Cache::shouldReceive('get')
-        ->once()
-        ->with('request_rate:127.0.0.1', 0)
-        ->andReturn(101);
-
-    Cache::shouldReceive('put')
+    Cache::shouldReceive('add')
         ->once()
         ->with(
             'request_rate:127.0.0.1',
-            102,
+            0,
             \Mockery::on(fn ($value) => $value instanceof DateTimeInterface)
-        );
+        )
+        ->andReturn(false);
+
+    Cache::shouldReceive('increment')
+        ->once()
+        ->with('request_rate:127.0.0.1')
+        ->andReturn(102);
 
     Cache::shouldReceive('increment')
         ->once()

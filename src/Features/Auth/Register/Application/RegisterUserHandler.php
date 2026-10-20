@@ -3,36 +3,49 @@
 namespace Features\Auth\Register\Application;
 
 use App\Models\User;
-use Exception;
 use Features\Auth\Register\Events\UserRegisterFailed;
 use Features\Auth\Register\Events\UserRegisterSucceeded;
-use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class RegisterUserHandler
 {
     /**
-     * @throws Exception
+     * Create the user, assign the default role and fire the registration event.
+     *
+     * Everything (including listeners such as the personal organization
+     * creation) runs in one transaction, so a failure never leaves a half
+     * registered account behind.
+     *
+     * @throws Throwable
      */
-    public function __invoke(RegisterUser $command): Authenticatable
+    public function __invoke(RegisterUser $command): User
     {
-        $attributes = [
-            'name' => $command->name,
-            'email' => $command->email,
-            'password' => bcrypt($command->password),
-        ];
+        $email = User::normalizeEmail($command->email);
 
         try {
-            $user = User::query()->create(
-                attributes: $attributes
-            );
+            return DB::transaction(function () use ($command, $email) {
+                /** @var User $user */
+                $user = User::query()->create([
+                    'name' => $command->name,
+                    'email' => $email,
+                    'password' => $command->password,
+                ]);
 
-            $user->assignDefaultRole();
+                $user->assignDefaultRole();
 
-            UserRegisterSucceeded::dispatch($user);
+                UserRegisterSucceeded::dispatch($user);
 
-            return $user->refresh();
-        } catch (Exception $e) {
-            UserRegisterFailed::dispatch('web', null, $attributes);
+                return $user->refresh();
+            });
+        } catch (Throwable $e) {
+            // Never pass the password (hashed or not) along with the event.
+            UserRegisterFailed::dispatch('sanctum', null, [
+                'name' => $command->name,
+                'email' => $email,
+                'error' => $e->getMessage(),
+            ]);
+
             throw $e;
         }
     }

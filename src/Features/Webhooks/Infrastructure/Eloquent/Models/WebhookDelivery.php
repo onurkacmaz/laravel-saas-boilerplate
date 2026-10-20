@@ -47,6 +47,8 @@ class WebhookDelivery extends Model
     {
         return [
             'payload' => 'array',
+            'status_code' => 'integer',
+            'attempt' => 'integer',
             'delivered_at' => 'datetime',
         ];
     }
@@ -66,12 +68,13 @@ class WebhookDelivery extends Model
         ]);
     }
 
-    public function markAsFailed(?int $statusCode = null, ?string $errorMessage = null): void
+    public function markAsFailed(?int $statusCode = null, ?string $errorMessage = null, ?string $responseBody = null): void
     {
         $this->update([
             'status' => 'failed',
             'status_code' => $statusCode,
             'error_message' => $errorMessage,
+            'response_body' => $responseBody,
         ]);
     }
 
@@ -82,7 +85,7 @@ class WebhookDelivery extends Model
 
     public function canRetry(): bool
     {
-        return $this->status === 'failed' && $this->attempt < $this->webhook->retry_limit;
+        return $this->status === 'failed' && $this->attempt < (int) $this->webhook?->retry_limit;
     }
 
     public function isSuccess(): bool

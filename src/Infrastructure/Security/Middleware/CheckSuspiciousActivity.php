@@ -24,8 +24,7 @@ class CheckSuspiciousActivity
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $ip = $request->ip();
-        // $userAgent = $request->userAgent();
+        $ip = $request->ip() ?? 'unknown';
 
         // Check for suspicious patterns in a request
         if ($this->hasSuspiciousContent($request)) {
@@ -55,9 +54,15 @@ class CheckSuspiciousActivity
 
     protected function hasSuspiciousContent(Request $request): bool
     {
-        $content = json_encode($request->all());
+        // Slashes must stay unescaped, otherwise "../" is encoded as "..\/" and the
+        // directory traversal pattern never matches.
+        $content = json_encode($request->all(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
 
-        return array_any($this->suspiciousPatterns, fn ($pattern) => preg_match($pattern, $content));
+        if ($content === false) {
+            return false;
+        }
+
+        return array_any($this->suspiciousPatterns, fn ($pattern) => preg_match($pattern, $content) === 1);
     }
 
     protected function isBlocked(string $ip): bool
@@ -84,12 +89,14 @@ class CheckSuspiciousActivity
     protected function hasUnusualRequestRate(string $ip): bool
     {
         $key = "request_rate:$ip";
-        $requests = Cache::get($key, 0);
 
-        Cache::put($key, $requests + 1, now()->addMinute());
+        // Fixed one-minute window: the TTL is only set when the window starts, so a
+        // steady trickle of requests can no longer keep the counter alive forever.
+        Cache::add($key, 0, now()->addMinute());
+        $requests = (int) Cache::increment($key);
 
         // More than 100 requests per minute is suspicious
-        return $requests > 100;
+        return $requests > 101;
     }
 
     protected function logSuspiciousActivity(Request $request, string $reason): void

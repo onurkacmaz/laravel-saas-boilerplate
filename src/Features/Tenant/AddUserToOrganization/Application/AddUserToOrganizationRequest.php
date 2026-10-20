@@ -4,6 +4,7 @@ namespace Features\Tenant\AddUserToOrganization\Application;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class AddUserToOrganizationRequest extends FormRequest
 {
@@ -23,7 +24,7 @@ class AddUserToOrganizationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'user_id' => ['required', 'uuid', 'exists:users,id'],
+            'user_id' => ['required', 'uuid', Rule::exists('users', 'id')->whereNull('deleted_at')],
             'role_id' => ['required', 'uuid', 'exists:roles,id'],
         ];
     }

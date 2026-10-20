@@ -2,6 +2,8 @@
 
 namespace Features\Acl\CreateRole\Application;
 
+use Features\Acl\Shared\Support\AclRules;
+use Features\Acl\Shared\Support\SystemRoles;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -24,7 +26,7 @@ class CreateRoleRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:255', 'unique:roles,slug'],
+            'slug' => ['nullable', 'string', 'max:255', 'alpha_dash', 'not_in:'.SystemRoles::OWNER, AclRules::uniqueSlug('roles')],
             'description' => ['nullable', 'string', 'max:1000'],
             'is_default' => ['nullable', 'boolean'],
         ];

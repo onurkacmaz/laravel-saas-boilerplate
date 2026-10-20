@@ -4,18 +4,22 @@ namespace Features\Acl\AssignToUser\Application;
 
 use App\Models\Role;
 use App\Models\User;
+use Features\Acl\Shared\Support\AclRules;
+use Features\Acl\Shared\Support\SystemRoles;
 
 class AssignToUserHandler
 {
     public function __invoke(AssignToUser $command): User
     {
-        $user = User::query()->findOrFail($command->userId);
+        // Only members of the current organization can be targeted, and only
+        // with roles visible to it.
+        $user = AclRules::memberOfCurrentOrganization($command->userId);
         $role = Role::query()->findOrFail($command->roleId);
 
-        if (! $user->roles()->where('role_id', $role->id)->exists()) {
-            $user->roles()->attach($role->id);
-        }
+        abort_if(SystemRoles::isOwnerRole($role), 422, 'The owner role cannot be assigned.');
 
-        return $user->load('roles')->fresh();
+        $user->roles()->syncWithoutDetaching([$role->id]);
+
+        return $user->fresh('roles');
     }
 }

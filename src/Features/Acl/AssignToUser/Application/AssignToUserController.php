@@ -3,6 +3,7 @@
 namespace Features\Acl\AssignToUser\Application;
 
 use Dedoc\Scramble\Attributes\Group;
+use Features\Auth\Shared\Resources\UserResource;
 use Illuminate\Http\JsonResponse;
 
 #[Group('Roles')]
@@ -16,14 +17,17 @@ class AssignToUserController
         $user = $handler(
             command: new AssignToUser(
                 userId: $userId,
-                roleId: $request->input('role_id')
+                roleId: (string) $request->validated('role_id')
             )
         );
 
         return response()->json([
             'status' => 'success',
             'message' => 'Role assigned successfully',
-            'data' => $user,
+            'data' => [
+                ...(new UserResource($user))->toArray($request),
+                'roles' => $user->roles,
+            ],
         ]);
     }
 }

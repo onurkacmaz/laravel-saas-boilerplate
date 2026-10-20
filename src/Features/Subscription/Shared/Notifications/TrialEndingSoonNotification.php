@@ -31,11 +31,11 @@ class TrialEndingSoonNotification extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $planName = $this->subscription->plan->name;
-        $organizationName = $this->subscription->organization->name;
+        $planName = ($this->subscription->plan?->name ?? config('app.name'));
+        $organizationName = ($this->subscription->organization?->name ?? config('app.name'));
         $trialEndsAt = $this->subscription->trial_ends_at?->format('F j, Y');
-        $daysRemaining = $this->subscription->trial_ends_at?->diffInDays(now());
-        $plansUrl = config('app.frontend_url').'/plans';
+        $daysRemaining = $this->daysRemaining();
+        $plansUrl = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/plans';
 
         $message = (new MailMessage)
             ->subject("Your {$planName} trial is ending soon")
@@ -64,10 +64,20 @@ class TrialEndingSoonNotification extends Notification implements ShouldQueue
     {
         return [
             'subscription_id' => $this->subscription->id,
-            'plan_name' => $this->subscription->plan->name,
-            'organization_name' => $this->subscription->organization->name,
+            'plan_name' => $this->subscription->plan?->name,
+            'organization_name' => ($this->subscription->organization?->name ?? config('app.name')),
             'trial_ends_at' => $this->subscription->trial_ends_at,
-            'days_remaining' => $this->subscription->trial_ends_at?->diffInDays(now()),
+            'days_remaining' => $this->daysRemaining(),
         ];
+    }
+
+    /**
+     * Whole days left in the trial (Carbon 3 returns signed, fractional values).
+     */
+    private function daysRemaining(): ?int
+    {
+        $trialEndsAt = $this->subscription->trial_ends_at;
+
+        return $trialEndsAt ? max(0, (int) ceil(now()->diffInDays($trialEndsAt, false))) : null;
     }
 }

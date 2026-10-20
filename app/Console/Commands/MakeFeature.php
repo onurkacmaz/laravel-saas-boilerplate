@@ -4,31 +4,54 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 
 class MakeFeature extends Command
 {
-    protected $signature = 'make:feature {name? : The name of the feature (e.g., Onur:Kacmaz)}';
+    protected $signature = 'make:feature
+                            {name? : The name of the feature in Module:Feature format (e.g., Billing:CreateInvoice)}
+                            {--force : Overwrite files that already exist}';
 
     protected $description = 'Create a new feature with all necessary files and structure';
 
     public function handle(): int
     {
         $featureName = $this->argument('name')
-            ?? $this->ask('What is the name of the feature?', 'Onur:Kacmaz');
+            ?? $this->ask('What is the name of the feature? (Module:Feature)', 'Billing:CreateInvoice');
 
-        $parts = explode(':', $featureName);
+        $parts = array_map(fn (string $part) => Str::studly(trim($part)), explode(':', (string) $featureName));
 
-        if (count($parts) < 2) {
+        if (count($parts) < 2 || in_array('', $parts, true)) {
             $this->error('Feature name must be in format: Module:FeatureName');
+
+            return CommandAlias::FAILURE;
+        }
+
+        foreach ($parts as $part) {
+            if (! preg_match('/^[A-Z][A-Za-z0-9]*$/', $part)) {
+                $this->error("Invalid name segment [{$part}]: only letters and digits are allowed.");
+
+                return CommandAlias::FAILURE;
+            }
+        }
+
+        $basePath = base_path('src/Features/'.implode('/', $parts));
+
+        if (File::isDirectory($basePath) && ! $this->option('force')) {
+            $this->error('The feature already exists. Use --force to overwrite its files.');
 
             return CommandAlias::FAILURE;
         }
 
         $this->createFeature($parts);
 
+        $featureName = implode(':', $parts);
+        $provider = 'Features\\'.implode('\\', $parts).'\\Providers\\'.end($parts).'ServiceProvider';
+
         $this->info("✓ Feature created successfully: {$featureName}");
         $this->line('  Location: src/Features/'.implode('/', $parts));
+        $this->line("  Next: register {$provider}::class in bootstrap/providers.php");
 
         return CommandAlias::SUCCESS;
     }
@@ -60,7 +83,10 @@ class MakeFeature extends Command
 
 use Illuminate\Support\Facades\Route;
 
-// Define your API routes here
+// Define your API routes here, e.g.:
+// Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.required', 'rate.limit'])
+//     ->post('api/v1/resources', ResourceController::class)
+//     ->name('api.v1.resources.store');
 
 PHP;
 
@@ -79,13 +105,15 @@ PHP;
 namespace Features\\{$namespace}\\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Infrastructure\Support\LoadsApiRoutes;
 
 class {$featureName}ServiceProvider extends ServiceProvider
 {
+    use LoadsApiRoutes;
+
     public function boot(): void
     {
-        // Load routes
-        \$this->loadRoutesFrom(__DIR__ . '/../Routes/api.php');
+        \$this->loadApiRoutesFrom(__DIR__.'/../Routes/api.php');
     }
 }
 

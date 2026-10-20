@@ -3,6 +3,7 @@
 namespace Features\Subscription\Subscribe\Application;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SubscribeRequest extends FormRequest
 {
@@ -14,9 +15,9 @@ class SubscribeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'plan_id' => ['required', 'uuid', 'exists:plans,id'],
+            'plan_id' => ['required', 'uuid', Rule::exists('plans', 'id')->whereNull('deleted_at')],
             'use_trial' => ['sometimes', 'boolean'],
-            'quantity' => ['sometimes', 'integer', 'min:1'],
+            'quantity' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:10000'],
         ];
     }
 }

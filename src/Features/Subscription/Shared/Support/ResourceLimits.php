@@ -20,11 +20,11 @@ class ResourceLimits
     {
         $limit = $this->getLimit($key);
 
-        if ($limit === null || $limit === -1) {
+        if (! is_numeric($limit) || (int) $limit < 0) {
             return false; // Unlimited
         }
 
-        return $current >= $limit;
+        return $current >= (int) $limit;
     }
 
     /**
@@ -50,6 +50,10 @@ class ResourceLimits
             return $this->getDefaultLimit($key, $default);
         }
 
+        if (! $subscription->plan) {
+            return $this->getDefaultLimit($key, $default);
+        }
+
         return $subscription->plan->getLimit($key, $this->getDefaultLimit($key, $default));
     }
 
@@ -68,7 +72,7 @@ class ResourceLimits
             return $this->getDefaultLimits();
         }
 
-        return $subscription->plan->limits ?? $this->getDefaultLimits();
+        return $subscription->plan?->limits ?? $this->getDefaultLimits();
     }
 
     /**
@@ -107,7 +111,7 @@ class ResourceLimits
             return false;
         }
 
-        return $subscription->plan->hasFeature($feature);
+        return (bool) $subscription->plan?->hasFeature($feature);
     }
 
     /**
@@ -117,11 +121,11 @@ class ResourceLimits
     {
         $limit = $this->getLimit($key);
 
-        if ($limit === null || $limit === -1) {
+        if (! is_numeric($limit) || (int) $limit < 0) {
             return -1; // Unlimited
         }
 
-        return max(0, $limit - $current);
+        return max(0, (int) $limit - $current);
     }
 
     /**
@@ -131,10 +135,14 @@ class ResourceLimits
     {
         $limit = $this->getLimit($key);
 
-        if ($limit === null || $limit === -1 || $limit === 0) {
+        if (! is_numeric($limit) || (int) $limit < 0) {
             return 0;
         }
 
-        return min(100, ($current / $limit) * 100);
+        if ((int) $limit === 0) {
+            return $current > 0 ? 100 : 0;
+        }
+
+        return min(100, ($current / (int) $limit) * 100);
     }
 }

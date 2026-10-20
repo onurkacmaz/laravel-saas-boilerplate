@@ -16,27 +16,23 @@ class SecurityHeaders
         $response = $next($request);
 
         // Prevent clickjacking attacks
-        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+        $response->headers->set('X-Frame-Options', 'DENY');
 
         // Prevent MIME type sniffing
         $response->headers->set('X-Content-Type-Options', 'nosniff');
 
-        // XSS Protection
-        $response->headers->set('X-XSS-Protection', '1; mode=block');
+        // The legacy XSS auditor is deprecated and can introduce vulnerabilities;
+        // modern guidance is to disable it explicitly and rely on CSP.
+        $response->headers->set('X-XSS-Protection', '0');
 
         // Referrer Policy
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-        // Content Security Policy
-        $response->headers->set('Content-Security-Policy', implode('; ', [
-            "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-            "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data: https:",
-            "font-src 'self' data:",
-            "connect-src 'self'",
-            "frame-ancestors 'self'",
-        ]));
+        // Content Security Policy: API responses are data, never documents to
+        // render, so nothing may be loaded or framed from them.
+        if (! $response->headers->has('Content-Security-Policy')) {
+            $response->headers->set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
+        }
 
         // Permissions Policy (formerly Feature-Policy)
         $response->headers->set('Permissions-Policy', implode(', ', [
@@ -47,8 +43,8 @@ class SecurityHeaders
             'usb=()',
         ]));
 
-        // Strict Transport Security (only in production)
-        if (app()->environment('production')) {
+        // Strict Transport Security (only in production, over HTTPS)
+        if (app()->environment('production') && $request->isSecure()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
         }
 

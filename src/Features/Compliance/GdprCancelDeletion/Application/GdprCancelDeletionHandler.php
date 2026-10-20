@@ -6,8 +6,6 @@ class GdprCancelDeletionHandler
 {
     public function __invoke(GdprCancelDeletion $command): void
     {
-        $command->user->update([
-            'deletion_requested_at' => now(),
-        ]);
+        $command->user->forceFill(['deletion_requested_at' => null])->save();
     }
 }

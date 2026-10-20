@@ -5,6 +5,7 @@ namespace Infrastructure\Tenant;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class TenantService
 {
@@ -14,10 +15,11 @@ class TenantService
     public function getUserOrganizations(User $user): Collection
     {
         return Organization::query()
-            ->whereHas('users', function ($query) use ($user) {
-                $query->where('user_id', $user->id);
+            ->where(function ($query) use ($user) {
+                $query->whereHas('users', function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                })->orWhere('owner_id', $user->id);
             })
-            ->orWhere('owner_id', $user->id)
             ->where('is_active', true)
             ->get();
     }
@@ -31,11 +33,9 @@ class TenantService
             return 'owner';
         }
 
-        $pivot = $organization->users()
+        return $organization->users()
             ->where('user_id', $user->id)
-            ->first()?->pivot;
-
-        return $pivot?->role_id;
+            ->first()?->pivot?->role_id;
     }
 
     /**
@@ -51,6 +51,10 @@ class TenantService
      */
     public function switchOrganization(User $user, string $organizationId): bool
     {
+        if (! Str::isUuid($organizationId)) {
+            return false;
+        }
+
         $organization = Organization::query()->find($organizationId);
 
         if (! $organization || ! $organization->is_active) {

@@ -34,6 +34,10 @@ class Webhook extends Model
         return WebhookFactory::new();
     }
 
+    protected $hidden = [
+        'secret',
+    ];
+
     protected $fillable = [
         'organization_id',
         'name',
@@ -53,6 +57,8 @@ class Webhook extends Model
             'events' => 'array',
             'headers' => 'array',
             'is_active' => 'boolean',
+            'timeout' => 'integer',
+            'retry_limit' => 'integer',
             'last_triggered_at' => 'datetime',
         ];
     }
@@ -84,11 +90,24 @@ class Webhook extends Model
 
     public function isSubscribedTo(string $eventName): bool
     {
-        return in_array($eventName, $this->events) || in_array('*', $this->events);
+        $events = $this->events ?? [];
+
+        if (in_array('*', $events, true) || in_array($eventName, $events, true)) {
+            return true;
+        }
+
+        // Wildcard groups such as "invitation.*".
+        foreach ($events as $event) {
+            if (is_string($event) && str_ends_with($event, '.*') && str_starts_with($eventName, substr($event, 0, -1))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function updateLastTriggered(): void
     {
-        $this->update(['last_triggered_at' => now()]);
+        $this->forceFill(['last_triggered_at' => now()])->saveQuietly();
     }
 }

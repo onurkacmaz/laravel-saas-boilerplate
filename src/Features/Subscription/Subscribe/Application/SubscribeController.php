@@ -3,12 +3,12 @@
 namespace Features\Subscription\Subscribe\Application;
 
 use Dedoc\Scramble\Attributes\Group;
-use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
 use Infrastructure\Tenant\TenantContext;
 use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 #[Group('Subscriptions')]
 class SubscribeController
@@ -21,9 +21,9 @@ class SubscribeController
         try {
             $session = $handler(
                 command: new Subscribe(
-                    planId: $request->input('plan_id'),
-                    useTrial: $request->input('use_trial', false),
-                    quantity: $request->input('quantity'),
+                    planId: (string) $request->validated('plan_id'),
+                    useTrial: $request->boolean('use_trial'),
+                    quantity: $request->filled('quantity') ? $request->integer('quantity') : null,
                     organization: TenantContext::getOrganization()
                 )
             );
@@ -40,11 +40,14 @@ class SubscribeController
                 'status' => 'error',
                 'message' => $exception->getMessage(),
             ], Response::HTTP_BAD_REQUEST);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            // Never leak payment provider / infrastructure error details to clients.
+            report($e);
+
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage(),
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                'message' => 'Unable to create the checkout session. Please try again later.',
+            ], Response::HTTP_BAD_GATEWAY);
         }
 
         return response()->json([

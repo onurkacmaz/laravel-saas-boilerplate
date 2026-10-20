@@ -24,7 +24,7 @@ class PaymentFailedNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $amount = ($this->paymentData['amount_due'] ?? 0) / 100;
+        $amount = number_format(((int) ($this->paymentData['amount_due'] ?? $this->paymentData['amount'] ?? 0)) / 100, 2);
         $currency = strtoupper($this->paymentData['currency'] ?? 'usd');
 
         return (new MailMessage)
@@ -35,7 +35,7 @@ class PaymentFailedNotification extends Notification implements ShouldQueue
             ->line("Amount: {$amount} {$currency}")
             ->line("Organization: {$this->organization->name}")
             ->line('Please update your payment method to avoid service interruption.')
-            ->action('Update Payment Method', url('/settings/billing'))
+            ->action('Update Payment Method', rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/settings/billing')
             ->line('If you need assistance, please contact our support team.');
     }
 

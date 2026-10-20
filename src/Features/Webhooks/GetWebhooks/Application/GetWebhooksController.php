@@ -4,26 +4,29 @@ namespace Features\Webhooks\GetWebhooks\Application;
 
 use Dedoc\Scramble\Attributes\Group;
 use Features\Webhooks\Shared\Resources\WebhookResource;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Infrastructure\Http\Pagination;
 use Infrastructure\Tenant\TenantContext;
-use Throwable;
 
 #[Group('Webhooks')]
 class GetWebhooksController
 {
     /**
-     * Get all webhooks.
+     * List the organization's webhooks.
      *
-     * @throws Throwable
+     * Supports `search` (name or URL), `page` and `per_page` (max 100).
      */
-    public function __invoke(GetWebhooksHandler $handler): JsonResource
+    public function __invoke(Request $request, GetWebhooksHandler $handler): JsonResource
     {
+        $search = $request->query('search');
+
         $webhooks = $handler(
             command: new GetWebhooks(
                 organization: TenantContext::getOrganization(),
-                search: request()->input('search'),
-                page: request()->input('page'),
-                perPage: request()->input('per_page'),
+                search: is_string($search) ? $search : null,
+                page: Pagination::page($request),
+                perPage: Pagination::perPage($request, 10),
             )
         );
 

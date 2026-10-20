@@ -2,41 +2,65 @@
 
 namespace Features\Auth\Login\Application;
 
+use App\Models\User;
 use Features\Auth\Login\Events\LoginFailed;
 use Features\Auth\Login\Events\LoginSucceeded;
 use Features\Auth\Login\Exceptions\InvalidCredentialsException;
+use Illuminate\Support\Facades\Hash;
 
 class LoginUserHandler
 {
     /**
+     * Validate the credentials and issue an API token.
+     *
+     * Returns [$user, $token]. When the user has two-factor authentication
+     * enabled the token is null and the caller must start a 2FA challenge.
+     *
+     * The session guard is deliberately not used: this is a stateless API and
+     * attempting a session login would write to a session nobody persists.
+     *
      * @throws InvalidCredentialsException
      */
     public function __invoke(LoginUser $command): array
     {
-        $credentials = [
-            'email' => $command->email,
-            'password' => $command->password,
-        ];
+        $email = User::normalizeEmail($command->email);
 
-        if (auth()->attempt($credentials)) {
-            $user = auth()->user();
+        /** @var User|null $user */
+        $user = User::query()->where('email', $email)->first();
 
-            if ($user->two_factor_verified) {
-                return [$user, null];
-            }
+        // Always run a hash check so response time does not reveal whether the
+        // e-mail address exists.
+        $passwordMatches = Hash::check($command->password, $user?->password ?? self::dummyHash());
 
-            $token = $user->createToken(
-                name: 'auth_token',
-                expiresAt: now()->addMinutes(config('auth.token_lifetime'))
-            )->plainTextToken;
+        if (! $user || ! $passwordMatches) {
+            LoginFailed::dispatch('sanctum', $user, ['email' => $email]);
 
-            LoginSucceeded::dispatch('web', $user, false);
-
-            return [$user, $token];
+            throw new InvalidCredentialsException('Invalid credentials');
         }
 
-        LoginFailed::dispatch('web', null, $credentials);
+        if ($user->hasTwoFactorEnabled()) {
+            return [$user, null];
+        }
 
-        throw new InvalidCredentialsException('Invalid credentials');
+        $token = self::issueToken($user);
+
+        LoginSucceeded::dispatch('sanctum', $user, false);
+
+        return [$user, $token];
+    }
+
+    public static function issueToken(User $user): string
+    {
+        return $user->createToken(
+            name: 'auth_token',
+            expiresAt: now()->addMinutes((int) config('auth.token_lifetime', 3600))
+        )->plainTextToken;
+    }
+
+    private static function dummyHash(): string
+    {
+        static $hash = null;
+
+        return $hash ??= Hash::make('dummy-password-for-timing-attack-mitigation');
     }
 }

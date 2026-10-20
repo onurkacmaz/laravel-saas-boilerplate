@@ -10,9 +10,12 @@ class GetWebhookDeliveriesHandler
     {
         $webhook = $command->organization->webhooks()->findOrFail($command->webhookId);
 
-        return $webhook->deliveries()->paginate(
-            perPage: $command->perPage,
-            page: $command->page
-        );
+        return $webhook->deliveries()
+            ->when($command->status, fn ($query, $status) => $query->where('status', $status))
+            ->latest()
+            ->paginate(
+                perPage: $command->perPage,
+                page: $command->page
+            );
     }
 }

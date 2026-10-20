@@ -7,11 +7,19 @@ use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Infrastructure\Tenant\TenantContext;
 use Symfony\Component\HttpFoundation\Response;
 
 class SetTenantContext
 {
+    /**
+     * Name of the request attribute holding the resolved organization id. It
+     * outlives the tenant context so that outer middleware (e.g. auditing) can
+     * still read it after the context has been cleared.
+     */
+    public const string REQUEST_ATTRIBUTE = 'tenant_organization_id';
+
     /**
      * Handle an incoming request.
      *
@@ -20,36 +28,41 @@ class SetTenantContext
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $this->resolveUser($request);
-
-        if ($user) {
-            TenantContext::setUser($user);
-        }
-
-        // Get organization ID from the header
-        $organizationId = $request->header('X-Organization-Id');
-
-        if ($organizationId) {
-            $organization = Organization::query()->find($organizationId);
-
-            if ($organization) {
-                // Verify the user belongs to this organization or is the owner
-                if ($user && ($organization->hasUser($user) || $organization->isOwner($user))) {
-                    TenantContext::setOrganization($organization);
-                    TenantContext::setUser($user);
-                } elseif (! $user) {
-                    // Allow setting organization without a user for specific cases
-                    TenantContext::setOrganization($organization);
-                }
-            }
-        }
-
-        $response = $next($request);
-
-        // Clear context after request
+        // Never trust state left over from a previous request (long-running workers).
         TenantContext::clear();
 
-        return $response;
+        try {
+            $user = $this->resolveUser($request);
+
+            if ($user) {
+                TenantContext::setUser($user);
+            }
+
+            $organizationId = $request->header('X-Organization-Id');
+
+            if (is_string($organizationId) && Str::isUuid($organizationId)) {
+                $organization = Organization::query()->find($organizationId);
+
+                if ($organization) {
+                    // Verify the user belongs to this organization or is the owner
+                    if ($user && ($organization->isOwner($user) || $organization->hasUser($user))) {
+                        TenantContext::setOrganization($organization);
+                    } elseif (! $user) {
+                        // Allow setting organization without a user for public, tenant-aware routes.
+                        TenantContext::setOrganization($organization);
+                    }
+                }
+            }
+
+            if (TenantContext::hasOrganization()) {
+                $request->attributes->set(self::REQUEST_ATTRIBUTE, TenantContext::getOrganizationId());
+            }
+
+            return $next($request);
+        } finally {
+            // Clear context after request, even when an exception bubbles up.
+            TenantContext::clear();
+        }
     }
 
     private function resolveUser(Request $request): ?User

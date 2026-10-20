@@ -19,6 +19,7 @@ class SendTrialEndingNotifications extends Command
 
         $subscriptions = Subscription::query()
             ->whereNotNull('trial_ends_at')
+            ->where('stripe_status', 'trialing')
             ->whereBetween('trial_ends_at', [$threeDaysFromNow, $threeDaysFromNowEnd])
             ->with(['organization.owner', 'plan'])
             ->get();
@@ -26,7 +27,7 @@ class SendTrialEndingNotifications extends Command
         $count = 0;
 
         foreach ($subscriptions as $subscription) {
-            if ($owner = $subscription->organization->owner) {
+            if ($owner = $subscription->organization?->owner) {
                 $owner->notify(new TrialEndingSoonNotification($subscription));
                 $count++;
             }

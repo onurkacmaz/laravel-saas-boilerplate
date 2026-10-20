@@ -11,17 +11,26 @@ class UpdateOrganizationSettingsHandler
     {
         $organization = Organization::query()->findOrFail($command->organizationId);
 
-        $setting = $organization?->setting;
+        $setting = OrganizationSetting::query()->firstOrCreate(
+            ['organization_id' => $organization->id],
+            OrganizationSetting::defaultAttributes(),
+        );
 
-        if (! $setting) {
-            $setting = OrganizationSetting::query()->create([
-                'organization_id' => $organization?->id,
-                ...OrganizationSetting::defaultAttributes(),
-                ...$command->data,
-            ]);
-        } else {
-            $setting->update($command->data);
+        $data = $command->data;
+
+        // Nested preference objects are merged, so a client can toggle a single
+        // flag without resending (and accidentally erasing) the other ones.
+        foreach (['notification_preferences', 'feature_flags'] as $key) {
+            if (array_key_exists($key, $data) && is_array($data[$key])) {
+                $data[$key] = array_merge($setting->{$key} ?? [], $data[$key]);
+            }
         }
+
+        if (isset($data['currency'])) {
+            $data['currency'] = strtoupper($data['currency']);
+        }
+
+        $setting->update($data);
 
         return $setting->fresh();
     }

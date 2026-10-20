@@ -15,6 +15,10 @@ class SendSubscriptionCreatedNotification
         $subscription = $event->subscription;
         $organization = $subscription->organization;
 
+        if (! $organization) {
+            return;
+        }
+
         if ($owner = $organization->owner) {
             $owner->notify(new SubscriptionCreatedNotification($subscription));
         }

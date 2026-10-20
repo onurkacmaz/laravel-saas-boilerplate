@@ -19,6 +19,7 @@ it('falls back to default rate limit when no organization is set', function (): 
     $limiter = \Mockery::mock(CacheRateLimiter::class);
     $tenantContext = \Mockery::mock(TenantContext::class);
     $tenantContext->shouldReceive('getOrganization')->andReturn(null);
+    $tenantContext->shouldReceive('getUser')->andReturn(null);
 
     $service = new RateLimiter($limiter, $tenantContext);
 
@@ -26,6 +27,30 @@ it('falls back to default rate limit when no organization is set', function (): 
         'max_attempts' => 30,
         'decay_minutes' => 1,
     ]);
+});
+
+it('uses free tier rate limit for authenticated users without organization', function (): void {
+    $limiter = \Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = \Mockery::mock(TenantContext::class);
+    $tenantContext->shouldReceive('getOrganization')->andReturn(null);
+    $tenantContext->shouldReceive('getUser')->andReturn(new \App\Models\User);
+
+    $service = new RateLimiter($limiter, $tenantContext);
+
+    expect($service->getPlanRateLimit())->toMatchArray([
+        'max_attempts' => 60,
+        'decay_minutes' => 1,
+    ]);
+});
+
+it('detects unlimited limit configurations', function (): void {
+    $limiter = \Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = \Mockery::mock(TenantContext::class);
+
+    $service = new RateLimiter($limiter, $tenantContext);
+
+    expect($service->isUnlimited(['max_attempts' => -1]))->toBeTrue()
+        ->and($service->isUnlimited(['max_attempts' => 60]))->toBeFalse();
 });
 
 it('uses free tier rate limit when organization has no subscription', function (): void {
@@ -87,6 +112,7 @@ it('delegates limiter operations', function (): void {
     $limiter = \Mockery::mock(CacheRateLimiter::class);
     $tenantContext = \Mockery::mock(TenantContext::class);
     $tenantContext->shouldReceive('getOrganization')->andReturn(null);
+    $tenantContext->shouldReceive('getUser')->andReturn(null);
 
     $service = new RateLimiter($limiter, $tenantContext);
 

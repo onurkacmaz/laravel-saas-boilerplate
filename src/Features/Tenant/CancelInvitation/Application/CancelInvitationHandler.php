@@ -10,32 +10,33 @@ use InvalidArgumentException;
 
 class CancelInvitationHandler
 {
+    /**
+     * @throws InvalidArgumentException
+     */
     public function __invoke(CancelInvitation $command): Invitation
     {
-        $invitation = Invitation::query()->findOrFail($command->invitationId);
-
         $organization = TenantContext::getOrganization();
 
-        if (! $organization || $invitation?->organization_id !== $organization->id) {
-            throw new InvalidArgumentException(
-                message: 'You do not have permission to cancel this invitation',
-                code: 403
-            );
+        if (! $organization) {
+            throw new InvalidArgumentException('You do not have permission to cancel this invitation', 403);
         }
 
-        if (! $invitation?->isPending()) {
-            throw new InvalidArgumentException(
-                message: 'Only pending invitations can be canceled.',
-                code: 400
-            );
+        // Scoped to the current organization: invitations of other tenants are
+        // reported as not found instead of leaking their existence.
+        $invitation = Invitation::query()
+            ->where('organization_id', $organization->id)
+            ->findOrFail($command->invitationId);
+
+        if (! $invitation->isPending()) {
+            throw new InvalidArgumentException('Only pending invitations can be canceled.', 422);
         }
 
-        $invitation?->update([
+        $invitation->update([
             'status' => InvitationStatus::CANCELED->value,
         ]);
 
         event(new InvitationCanceled($invitation));
 
-        return $invitation?->fresh();
+        return $invitation->fresh();
     }
 }

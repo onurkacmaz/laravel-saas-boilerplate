@@ -11,6 +11,7 @@ Route::prefix('api/v1')
             ->name('auth.')
             ->group(function () {
                 Route::post('/register', [RegisterController::class, '__invoke'])
+                    ->middleware('throttle:auth')
                     ->name('register');
             });
     });

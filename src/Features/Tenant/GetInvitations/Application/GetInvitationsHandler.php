@@ -14,6 +14,7 @@ class GetInvitationsHandler
 
         return Invitation::query()
             ->where('organization_id', $organization?->id)
+            ->when($command->status, fn ($query, $status) => $query->where('status', $status))
             ->with(['role', 'invitedBy'])
             ->latest()
             ->paginate(

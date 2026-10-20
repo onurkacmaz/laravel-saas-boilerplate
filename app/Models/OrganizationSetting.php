@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * @property int $id
+ * @property string $id
  * @property string $organization_id
  * @property string $timezone
  * @property string $locale
@@ -47,11 +47,11 @@ class OrganizationSetting extends Model
     public static function defaultAttributes(): array
     {
         return [
-            'timezone' => config('settings.defaults.timezone', 'Europe/Istanbul'),
-            'locale' => config('settings.defaults.locale', 'tr'),
+            'timezone' => config('settings.defaults.timezone', 'UTC'),
+            'locale' => config('settings.defaults.locale', 'en'),
             'date_format' => config('settings.defaults.date_format', 'Y-m-d'),
             'time_format' => config('settings.defaults.time_format', 'H:i:s'),
-            'currency' => config('settings.defaults.currency', 'TRY'),
+            'currency' => config('settings.defaults.currency', 'USD'),
             'notification_preferences' => config('settings.defaults.notification_preferences'),
             'feature_flags' => config('settings.defaults.feature_flags'),
         ];

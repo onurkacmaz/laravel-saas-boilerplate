@@ -23,9 +23,9 @@ class TwoFactorLoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'jwt' => 'required|string',
-            'code' => 'nullable|string',
-            'recovery_code' => 'nullable|string',
+            'jwt' => ['required', 'string', 'max:4096'],
+            'code' => ['nullable', 'required_without:recovery_code', 'string', 'max:16'],
+            'recovery_code' => ['nullable', 'required_without:code', 'string', 'max:64'],
         ];
     }
 }

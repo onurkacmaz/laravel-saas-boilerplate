@@ -3,8 +3,8 @@
 namespace Features\Auth\Register\Application;
 
 use Dedoc\Scramble\Attributes\Group;
-use Exception;
 use Features\Auth\Shared\Resources\UserResource;
+use Throwable;
 
 #[Group('Authentication')]
 class RegisterController
@@ -12,15 +12,15 @@ class RegisterController
     /**
      * Register a new user.
      *
-     * @throws Exception
+     * @throws Throwable
      */
     public function __invoke(RegisterRequest $request, RegisterUserHandler $handler)
     {
         $user = $handler(
             command: new RegisterUser(
-                name: $request->input('name'),
-                email: $request->input('email'),
-                password: $request->input('password'),
+                name: (string) $request->validated('name'),
+                email: (string) $request->validated('email'),
+                password: (string) $request->validated('password'),
             )
         );
 

@@ -1,0 +1,37 @@
+name: Bug report
+description: Report something that does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! **Security vulnerabilities must be reported privately**, see SECURITY.md.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Requests (method, endpoint, payload) or commands that trigger the problem.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit / version
+      placeholder: e.g. main @ abc1234
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: PHP 8.4, PostgreSQL 16, Redis 7, Sail...
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      render: shell

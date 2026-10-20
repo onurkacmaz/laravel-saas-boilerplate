@@ -3,7 +3,7 @@
 namespace Features\Acl\UpdatePermission\Application;
 
 use App\Models\Permission;
-use Illuminate\Support\Str;
+use Features\Acl\Shared\Support\AclRules;
 
 class UpdatePermissionHandler
 {
@@ -11,14 +11,18 @@ class UpdatePermissionHandler
     {
         $permission = Permission::query()->findOrFail($command->permissionId);
 
-        if ($command->name && ! $command->slug) {
-            $command->slug = Str::slug($command->name);
+        AclRules::ensureMutable($permission);
+
+        $attributes = array_intersect_key($command->attributes, array_flip(['name', 'slug', 'description']));
+
+        // Permission slugs are referenced from code, so renaming a permission
+        // never silently changes its slug; an empty slug keeps the current one.
+        if (array_key_exists('slug', $attributes) && empty($attributes['slug'])) {
+            unset($attributes['slug']);
         }
 
-        return tap($permission)->update([
-            'name' => $command->name,
-            'slug' => $command->slug,
-            'description' => $command->description,
-        ]);
+        $permission->update($attributes);
+
+        return $permission->fresh();
     }
 }

@@ -11,6 +11,6 @@ class GetLimitsHandler
     {
         $organization = TenantContext::getOrganization();
 
-        return new ResourceLimits($organization)->getAllLimits();
+        return (new ResourceLimits($organization))->getAllLimits();
     }
 }

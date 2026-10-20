@@ -18,13 +18,16 @@ class LoginRequest extends FormRequest
     /**
      * Get the validation rules that apply to the request.
      *
+     * No minimum length is enforced on the password here: a password policy
+     * belongs to registration, and a failed login must not reveal it.
+     *
      * @return array<string, ValidationRule|array|string>
      */
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email'],
-            'password' => ['required', 'string', 'min:8'],
+            'email' => ['required', 'string', 'email', 'max:255'],
+            'password' => ['required', 'string', 'max:255'],
         ];
     }
 }

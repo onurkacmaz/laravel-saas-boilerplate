@@ -118,7 +118,7 @@ it('generates and verifies otp codes using the two factor utility', function ():
     $service = new TwoFactor;
     $secret = $service->generateTwoFactorSecret();
 
-    expect($secret)->toHaveLength(16);
+    expect($secret)->toHaveLength(32);
 
     $otp = $service->generateOtp($secret);
     expect($otp)->toHaveLength(6);

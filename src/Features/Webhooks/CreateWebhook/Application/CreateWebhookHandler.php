@@ -3,27 +3,25 @@
 namespace Features\Webhooks\CreateWebhook\Application;
 
 use Features\Webhooks\Infrastructure\Eloquent\Models\Webhook;
-use Illuminate\Database\Eloquent\Model;
+use Features\Webhooks\Shared\Support\WebhookRules;
 use Illuminate\Support\Str;
 
 class CreateWebhookHandler
 {
-    public function __invoke(CreateWebhook $command): Model|Webhook
+    public function __invoke(CreateWebhook $command): Webhook
     {
-        if (! isset($command->secret)) {
-            $command->secret = Str::random(32);
-        }
-
-        return Webhook::query()->create([
-            'organization_id' => $command->organization->id,
+        /** @var Webhook $webhook */
+        $webhook = $command->organization->webhooks()->create([
             'name' => $command->name,
             'url' => $command->url,
             'events' => $command->events,
-            'secret' => $command->secret,
-            'enabled' => $command->enabled,
-            'headers' => $command->headers,
+            'secret' => $command->secret ?: Str::random(48),
+            'is_active' => $command->enabled,
+            'headers' => WebhookRules::sanitizeHeaders($command->headers),
             'timeout' => $command->timeout,
             'retry_limit' => $command->retryLimit,
         ]);
+
+        return $webhook;
     }
 }

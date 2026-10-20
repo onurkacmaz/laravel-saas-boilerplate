@@ -79,7 +79,7 @@ class AuditLog extends Model
         $userName = $this->user?->name ?? 'System';
         $action = $this->event;
 
-        if ($this->auditable) {
+        if ($this->auditable_type) {
             $modelName = class_basename($this->auditable_type);
 
             return "{$userName} {$action} {$modelName}";
@@ -95,8 +95,10 @@ class AuditLog extends Model
     {
         $changes = [];
 
-        foreach ($this->new_values as $key => $newValue) {
-            $oldValue = $this->old_values[$key] ?? null;
+        $oldValues = $this->old_values ?? [];
+
+        foreach ($this->new_values ?? [] as $key => $newValue) {
+            $oldValue = $oldValues[$key] ?? null;
 
             if ($oldValue !== $newValue) {
                 $changes[$key] = [

@@ -2,6 +2,7 @@
 
 namespace Features\Tenant\SendInvitation\Application;
 
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 
 class SendInvitationRequest extends FormRequest
@@ -11,10 +12,17 @@ class SendInvitationRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('email'))) {
+            $this->merge(['email' => User::normalizeEmail($this->input('email'))]);
+        }
+    }
+
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255'],
             'role_id' => ['required', 'uuid', 'exists:roles,id'],
         ];
     }

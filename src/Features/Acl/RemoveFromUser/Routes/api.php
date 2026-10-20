@@ -3,6 +3,6 @@
 use Features\Acl\RemoveFromUser\Application\RemoveFromUserController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'tenant.context', 'rate.limit', 'tenant.required'])
+Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.required', 'tenant.role:admin', 'rate.limit'])
     ->delete('api/v1/users/{user}/roles/{role}', RemoveFromUserController::class)
     ->name('api.v1.users.roles.remove');

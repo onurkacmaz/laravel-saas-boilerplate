@@ -2,13 +2,12 @@
 
 namespace Features\Webhooks\DeleteWebhook\Application;
 
-use Features\Webhooks\Infrastructure\Eloquent\Models\Webhook;
+use Infrastructure\Tenant\TenantContext;
 
 class DeleteWebhookHandler
 {
     public function __invoke(DeleteWebhook $command): void
     {
-        $webhook = Webhook::query()->findOrFail($command->webhookId);
-        $webhook->delete();
+        TenantContext::getOrganization()->webhooks()->findOrFail($command->webhookId)->delete();
     }
 }

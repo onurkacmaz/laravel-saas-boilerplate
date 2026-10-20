@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 /**
  * @property string $organization_id
  * @property string $user_id
- * @property string $role
+ * @property string $role_id
  */
 class OrganizationUser extends Pivot
 {
@@ -17,7 +17,7 @@ class OrganizationUser extends Pivot
     protected $fillable = [
         'organization_id',
         'user_id',
-        'role',
+        'role_id',
     ];
 
     public function organization(): BelongsTo
@@ -28,5 +28,10 @@ class OrganizationUser extends Pivot
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class)->withoutGlobalScopes();
     }
 }

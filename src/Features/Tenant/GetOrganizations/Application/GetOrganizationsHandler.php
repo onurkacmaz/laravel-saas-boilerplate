@@ -10,8 +10,13 @@ class GetOrganizationsHandler
     public function __invoke(GetOrganizations $command): LengthAwarePaginator
     {
         return Organization::query()
-            ->with(['owner', 'users'])
-            ->whereHas('users', fn ($query) => $query->where('user_id', $command->userId))
+            ->with(['owner'])
+            ->withCount('users')
+            ->where(function ($query) use ($command) {
+                $query->whereHas('users', fn ($query) => $query->where('user_id', $command->userId))
+                    ->orWhere('owner_id', $command->userId);
+            })
+            ->orderBy('name')
             ->paginate(
                 perPage: $command->perPage,
                 page: $command->page,

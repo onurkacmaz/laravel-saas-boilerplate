@@ -10,13 +10,12 @@ class CreateRoleHandler
 {
     public function __invoke(CreateRole $command): Role
     {
-        $command->slug = $command->slug ?? Str::slug($command->name);
-
+        // The organization is stamped by the tenant scope trait.
         $role = Role::query()->create([
             'name' => $command->name,
-            'slug' => $command->slug,
+            'slug' => $command->slug ?: Str::slug($command->name),
             'description' => $command->description,
-            'is_default' => $command->isDefault ?? false,
+            'is_default' => $command->isDefault,
         ]);
 
         event(new RoleCreated($role));

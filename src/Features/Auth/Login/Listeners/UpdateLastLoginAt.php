@@ -11,6 +11,6 @@ class UpdateLastLoginAt
      */
     public function handle(LoginSucceeded $event): void
     {
-        $event->user->update(['last_login_at' => now()]);
+        $event->user->forceFill(['last_login_at' => now()])->saveQuietly();
     }
 }

@@ -6,6 +6,7 @@ use Dedoc\Scramble\Attributes\Group;
 use Features\Tenant\Shared\Resources\OrganizationResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\ResourceCollection;
+use Infrastructure\Http\Pagination;
 use Throwable;
 
 #[Group('Organizations')]
@@ -21,8 +22,8 @@ class GetOrganizationsController
         $organizations = $handler(
             command: new GetOrganizations(
                 userId: $request->user()->id,
-                page: $request->input('page'),
-                perPage: $request->input('perPage')
+                page: Pagination::page($request),
+                perPage: Pagination::perPage($request, 10)
             )
         );
 

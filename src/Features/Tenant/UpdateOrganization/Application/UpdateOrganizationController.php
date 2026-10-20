@@ -11,15 +11,15 @@ class UpdateOrganizationController
 {
     /**
      * Update an organization by ID.
+     *
+     * Only the fields present in the request are updated.
      */
     public function __invoke(UpdateOrganizationRequest $request, string $organizationId, UpdateOrganizationHandler $handler): JsonResource
     {
         $organization = $handler(
             command: new UpdateOrganization(
                 organizationId: $organizationId,
-                name: $request->input('name'),
-                description: $request->input('description'),
-                isActive: $request->boolean('is_active')
+                attributes: $request->validated(),
             )
         );
 

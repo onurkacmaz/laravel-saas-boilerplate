@@ -3,9 +3,10 @@
 namespace Features\Tenant\CancelInvitation\Application;
 
 use Dedoc\Scramble\Attributes\Group;
-use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
+use Infrastructure\Http\ApiError;
+use InvalidArgumentException;
 
 #[Group('Invitations')]
 class CancelInvitationController
@@ -21,13 +22,10 @@ class CancelInvitationController
                     invitationId: $invitationId
                 )
             );
-
-            return response()->noContent();
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $e->getMessage(),
-            ], $e->getCode());
+        } catch (InvalidArgumentException $e) {
+            return ApiError::fromException($e);
         }
+
+        return response()->noContent();
     }
 }

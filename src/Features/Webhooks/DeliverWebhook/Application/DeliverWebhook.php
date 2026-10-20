@@ -10,5 +10,6 @@ class DeliverWebhook
         public Webhook $webhook,
         public string $eventName,
         public array $payload,
+        public int $attempt = 1,
     ) {}
 }

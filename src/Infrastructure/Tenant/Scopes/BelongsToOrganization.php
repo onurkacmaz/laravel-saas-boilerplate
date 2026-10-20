@@ -14,9 +14,24 @@ class BelongsToOrganization implements Scope
      */
     public function apply(Builder $builder, Model $model): void
     {
-        if (TenantContext::hasOrganization()) {
-            $builder->where($model->getTable().'.organization_id', TenantContext::getOrganizationId());
+        if (! TenantContext::hasOrganization()) {
+            return;
         }
+
+        $column = $model->getTable().'.organization_id';
+
+        // Some models (e.g. roles and permissions) have system-wide records that
+        // are shared by every tenant; those are stored with a NULL organization.
+        if (method_exists($model, 'includesSystemRecords') && $model->includesSystemRecords()) {
+            $builder->where(function (Builder $query) use ($column) {
+                $query->where($column, TenantContext::getOrganizationId())
+                    ->orWhereNull($column);
+            });
+
+            return;
+        }
+
+        $builder->where($column, TenantContext::getOrganizationId());
     }
 
     /**

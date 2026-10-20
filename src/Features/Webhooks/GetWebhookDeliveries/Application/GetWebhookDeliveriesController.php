@@ -4,30 +4,34 @@ namespace Features\Webhooks\GetWebhookDeliveries\Application;
 
 use Dedoc\Scramble\Attributes\Group;
 use Features\Webhooks\Shared\Resources\WebhookDeliveryResource;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Infrastructure\Http\Pagination;
 use Infrastructure\Tenant\TenantContext;
-use Throwable;
 
 #[Group('Webhooks')]
 class GetWebhookDeliveriesController
 {
     /**
-     * Get webhook deliveries.
+     * List the deliveries of a webhook, newest first.
      *
-     * @throws Throwable
+     * Supports `status` (pending, success, failed), `page` and `per_page` (max 100).
      */
-    public function __invoke(string $webhookId, GetWebhookDeliveriesHandler $handler): JsonResource
+    public function __invoke(Request $request, string $webhookId, GetWebhookDeliveriesHandler $handler): JsonResource
     {
-        $webhooks = $handler(
+        $status = $request->query('status');
+
+        $deliveries = $handler(
             command: new GetWebhookDeliveries(
                 organization: TenantContext::getOrganization(),
                 webhookId: $webhookId,
-                page: request()->input('page'),
-                perPage: request()->input('per_page'),
+                page: Pagination::page($request),
+                perPage: Pagination::perPage($request, 10),
+                status: in_array($status, ['pending', 'success', 'failed'], true) ? $status : null,
             )
         );
 
-        return $webhooks->toResourceCollection(WebhookDeliveryResource::class)->additional([
+        return $deliveries->toResourceCollection(WebhookDeliveryResource::class)->additional([
             'status' => 'success',
             'message' => 'Webhook deliveries retrieved successfully.',
         ]);
