@@ -1,5 +1,6 @@
 <?php
 
+use App\Providers\AppServiceProvider;
 use Features\Acl\AssignToUser\Providers\AssignToUserServiceProvider;
 use Features\Acl\AttachPermission\Providers\AttachPermissionServiceProvider;
 use Features\Acl\CreatePermission\Providers\CreatePermissionServiceProvider;
@@ -14,6 +15,7 @@ use Features\Acl\GetRoles\Providers\GetRolesServiceProvider;
 use Features\Acl\RemoveFromUser\Providers\RemoveFromUserServiceProvider;
 use Features\Acl\UpdatePermission\Providers\UpdatePermissionServiceProvider;
 use Features\Acl\UpdateRole\Providers\UpdateRoleServiceProvider;
+use Features\Audit\AuditServiceProvider;
 use Features\Auth\ChangePassword\Providers\ChangePasswordServiceProvider;
 use Features\Auth\EmailVerification\Providers\EmailVerificationServiceProvider;
 use Features\Auth\GetUser\Providers\GetUserServiceProvider;
@@ -53,7 +55,7 @@ use Features\Webhooks\UpdateWebhook\Providers\UpdateWebhookServiceProvider;
 use Features\Webhooks\WebhookServiceProvider;
 
 return [
-    App\Providers\AppServiceProvider::class,
+    AppServiceProvider::class,
     LoginServiceProvider::class,
     RegisterServiceProvider::class,
     TwoFactorAuthServiceProvider::class,
@@ -89,7 +91,7 @@ return [
     GdprDownloadServiceProvider::class,
     GdprCancelDeletionServiceProvider::class,
     GdprRequestDeletionServiceProvider::class,
-    Features\Audit\AuditServiceProvider::class,
+    AuditServiceProvider::class,
     GetPermissionsServiceProvider::class,
     GetPermissionServiceProvider::class,
     CreatePermissionServiceProvider::class,

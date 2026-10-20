@@ -2,6 +2,16 @@
 
 namespace App\Providers;
 
+use App\Models\Organization;
+use App\Models\PersonalAccessToken;
+use Dedoc\Scramble\Reflection\ReflectionRoute;
+use Dedoc\Scramble\Scramble;
+use Dedoc\Scramble\Support\Generator\OpenApi;
+use Dedoc\Scramble\Support\Generator\Parameter;
+use Dedoc\Scramble\Support\Generator\Schema;
+use Dedoc\Scramble\Support\Generator\SecurityScheme;
+use Dedoc\Scramble\Support\Generator\Types\StringType;
+use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -13,6 +23,8 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Infrastructure\Tenant\Middleware\RequireTenant;
+use Laravel\Cashier\Cashier;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,8 +37,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // The application ships its own Stripe webhook controller on the same URI
         // as Cashier's default one; only ours must be registered.
-        if (class_exists(\Laravel\Cashier\Cashier::class)) {
-            \Laravel\Cashier\Cashier::ignoreRoutes();
+        if (class_exists(Cashier::class)) {
+            Cashier::ignoreRoutes();
         }
 
         // Route parameters are UUIDs (or random tokens). Constraining them turns
@@ -54,22 +66,22 @@ class AppServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
         $this->configureAuthUrls();
 
-        if (class_exists(\Laravel\Cashier\Cashier::class)) {
-            \Laravel\Cashier\Cashier::useCustomerModel(\App\Models\Organization::class);
-            \Laravel\Cashier\Cashier::calculateTaxes();
-            if (class_exists(\Features\Subscription\Infrastructure\Eloquent\Models\Subscription::class)) {
-                \Laravel\Cashier\Cashier::useSubscriptionModel(\Features\Subscription\Infrastructure\Eloquent\Models\Subscription::class);
+        if (class_exists(Cashier::class)) {
+            Cashier::useCustomerModel(Organization::class);
+            Cashier::calculateTaxes();
+            if (class_exists(Subscription::class)) {
+                Cashier::useSubscriptionModel(Subscription::class);
             }
         }
 
-        if (class_exists(\Dedoc\Scramble\Scramble::class)) {
-            \Dedoc\Scramble\Scramble::configure()
+        if (class_exists(Scramble::class)) {
+            Scramble::configure()
                 // Document the versioned API only. (Calling $route->middleware() here
                 // would *add* middleware to every route instead of filtering them.)
                 ->routes(fn (Route $route) => Str::startsWith($route->uri(), 'api/'))
-                ->withDocumentTransformers(function (\Dedoc\Scramble\Support\Generator\OpenApi $openApi) {
+                ->withDocumentTransformers(function (OpenApi $openApi) {
                     $openApi->secure(
-                        \Dedoc\Scramble\Support\Generator\SecurityScheme::http('bearer')
+                        SecurityScheme::http('bearer')
                     );
 
                     $apiPath = config('scramble.api_path', 'api');
@@ -83,7 +95,7 @@ class AppServiceProvider extends ServiceProvider
                             });
                         })
                         ->mapWithKeys(function (Route $route) use ($apiPath) {
-                            $pathAliases = \Dedoc\Scramble\Reflection\ReflectionRoute::createFromRoute($route)->getSignatureParametersMap();
+                            $pathAliases = ReflectionRoute::createFromRoute($route)->getSignatureParametersMap();
                             $uriWithoutOptionalParameters = Str::replace('?}', '}', $route->uri());
 
                             $normalizedPath = Str::replace(
@@ -112,16 +124,16 @@ class AppServiceProvider extends ServiceProvider
 
                             $hasOrganizationHeader = collect($operation->parameters ?? [])
                                 ->contains(function ($parameter) {
-                                    return $parameter instanceof \Dedoc\Scramble\Support\Generator\Parameter
+                                    return $parameter instanceof Parameter
                                         && $parameter->name === 'X-Organization-Id'
                                         && $parameter->in === 'header';
                                 });
 
                             if (! $hasOrganizationHeader) {
                                 $operation->addParameters([
-                                    \Dedoc\Scramble\Support\Generator\Parameter::make('X-Organization-Id', 'header')
+                                    Parameter::make('X-Organization-Id', 'header')
                                         ->required(true)
-                                        ->setSchema(\Dedoc\Scramble\Support\Generator\Schema::fromType(new \Dedoc\Scramble\Support\Generator\Types\StringType))
+                                        ->setSchema(Schema::fromType(new StringType))
                                         ->example('09ddaeae-1654-486d-b557-eab6cdc72ad9')
                                         ->description('Identifier of the organization context for the request.'),
                                 ]);
@@ -131,8 +143,8 @@ class AppServiceProvider extends ServiceProvider
                 });
         }
 
-        if (class_exists(\Laravel\Sanctum\Sanctum::class)) {
-            \Laravel\Sanctum\Sanctum::usePersonalAccessTokenModel(\App\Models\PersonalAccessToken::class);
+        if (class_exists(Sanctum::class)) {
+            Sanctum::usePersonalAccessTokenModel(PersonalAccessToken::class);
         }
     }
 

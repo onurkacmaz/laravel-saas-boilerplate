@@ -4,13 +4,14 @@ namespace Infrastructure\Support;
 
 use Illuminate\Contracts\Foundation\CachesRoutes;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
 
 /**
  * Loads a feature's route file inside the "api" middleware group so every
  * feature endpoint gets the same baseline middleware (bindings, security
  * headers, auditing...), while staying compatible with "route:cache".
  *
- * @mixin \Illuminate\Support\ServiceProvider
+ * @mixin ServiceProvider
  */
 trait LoadsApiRoutes
 {

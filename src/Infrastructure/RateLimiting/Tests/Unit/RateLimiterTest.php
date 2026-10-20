@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Organization;
+use App\Models\User;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
 use Illuminate\Cache\RateLimiter as CacheRateLimiter;
@@ -12,12 +13,12 @@ use Tests\TestCase;
 uses(TestCase::class);
 
 afterEach(function (): void {
-    \Mockery::close();
+    Mockery::close();
 });
 
 it('falls back to default rate limit when no organization is set', function (): void {
-    $limiter = \Mockery::mock(CacheRateLimiter::class);
-    $tenantContext = \Mockery::mock(TenantContext::class);
+    $limiter = Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = Mockery::mock(TenantContext::class);
     $tenantContext->shouldReceive('getOrganization')->andReturn(null);
     $tenantContext->shouldReceive('getUser')->andReturn(null);
 
@@ -30,10 +31,10 @@ it('falls back to default rate limit when no organization is set', function (): 
 });
 
 it('uses free tier rate limit for authenticated users without organization', function (): void {
-    $limiter = \Mockery::mock(CacheRateLimiter::class);
-    $tenantContext = \Mockery::mock(TenantContext::class);
+    $limiter = Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = Mockery::mock(TenantContext::class);
     $tenantContext->shouldReceive('getOrganization')->andReturn(null);
-    $tenantContext->shouldReceive('getUser')->andReturn(new \App\Models\User);
+    $tenantContext->shouldReceive('getUser')->andReturn(new User);
 
     $service = new RateLimiter($limiter, $tenantContext);
 
@@ -44,8 +45,8 @@ it('uses free tier rate limit for authenticated users without organization', fun
 });
 
 it('detects unlimited limit configurations', function (): void {
-    $limiter = \Mockery::mock(CacheRateLimiter::class);
-    $tenantContext = \Mockery::mock(TenantContext::class);
+    $limiter = Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = Mockery::mock(TenantContext::class);
 
     $service = new RateLimiter($limiter, $tenantContext);
 
@@ -54,10 +55,10 @@ it('detects unlimited limit configurations', function (): void {
 });
 
 it('uses free tier rate limit when organization has no subscription', function (): void {
-    $limiter = \Mockery::mock(CacheRateLimiter::class);
-    $tenantContext = \Mockery::mock(TenantContext::class);
+    $limiter = Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = Mockery::mock(TenantContext::class);
 
-    $organization = \Mockery::mock(Organization::class);
+    $organization = Mockery::mock(Organization::class);
     $organization->shouldReceive('activeSubscription')->andReturn(null);
 
     $tenantContext->shouldReceive('getOrganization')->andReturn($organization);
@@ -71,14 +72,14 @@ it('uses free tier rate limit when organization has no subscription', function (
 });
 
 it('derives rate limit from subscription plan details', function (): void {
-    $limiter = \Mockery::mock(CacheRateLimiter::class);
-    $tenantContext = \Mockery::mock(TenantContext::class);
+    $limiter = Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = Mockery::mock(TenantContext::class);
 
     $plan = new Plan(['limits' => ['requests_per_minute' => 120]]);
     $subscription = new Subscription;
     $subscription->setRelation('plan', $plan);
 
-    $organization = \Mockery::mock(Organization::class);
+    $organization = Mockery::mock(Organization::class);
     $organization->shouldReceive('activeSubscription')->andReturn($subscription);
 
     $tenantContext->shouldReceive('getOrganization')->andReturn($organization);
@@ -91,14 +92,14 @@ it('derives rate limit from subscription plan details', function (): void {
 });
 
 it('treats negative plan limits as unlimited', function (): void {
-    $limiter = \Mockery::mock(CacheRateLimiter::class);
-    $tenantContext = \Mockery::mock(TenantContext::class);
+    $limiter = Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = Mockery::mock(TenantContext::class);
 
     $plan = new Plan(['limits' => ['requests_per_minute' => -1]]);
     $subscription = new Subscription;
     $subscription->setRelation('plan', $plan);
 
-    $organization = \Mockery::mock(Organization::class);
+    $organization = Mockery::mock(Organization::class);
     $organization->shouldReceive('activeSubscription')->andReturn($subscription);
 
     $tenantContext->shouldReceive('getOrganization')->andReturn($organization);
@@ -109,8 +110,8 @@ it('treats negative plan limits as unlimited', function (): void {
 });
 
 it('delegates limiter operations', function (): void {
-    $limiter = \Mockery::mock(CacheRateLimiter::class);
-    $tenantContext = \Mockery::mock(TenantContext::class);
+    $limiter = Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = Mockery::mock(TenantContext::class);
     $tenantContext->shouldReceive('getOrganization')->andReturn(null);
     $tenantContext->shouldReceive('getUser')->andReturn(null);
 
@@ -118,7 +119,7 @@ it('delegates limiter operations', function (): void {
 
     $limiter->shouldReceive('attempt')
         ->once()
-        ->with('key', 5, \Mockery::type(Closure::class), 120)
+        ->with('key', 5, Mockery::type(Closure::class), 120)
         ->andReturn('ok');
 
     $limiter->shouldReceive('tooManyAttempts')->once()->with('key', 5)->andReturn(true);
@@ -141,8 +142,8 @@ it('delegates limiter operations', function (): void {
 });
 
 it('generates rate limit keys based on organization, user and suffix', function (): void {
-    $limiter = \Mockery::mock(CacheRateLimiter::class);
-    $tenantContext = \Mockery::mock(TenantContext::class);
+    $limiter = Mockery::mock(CacheRateLimiter::class);
+    $tenantContext = Mockery::mock(TenantContext::class);
 
     $organization = new Organization;
     $organization->setAttribute('id', 'org-1');

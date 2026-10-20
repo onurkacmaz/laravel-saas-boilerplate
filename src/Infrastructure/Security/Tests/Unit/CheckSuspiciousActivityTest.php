@@ -9,7 +9,7 @@ use Tests\TestCase;
 uses(TestCase::class);
 
 afterEach(function (): void {
-    \Mockery::close();
+    Mockery::close();
 });
 
 it('rejects requests containing suspicious patterns and records activity', function (): void {
@@ -25,7 +25,7 @@ it('rejects requests containing suspicious patterns and records activity', funct
         ->with(
             'suspicious_activity:127.0.0.1',
             1,
-            \Mockery::on(fn ($value) => $value instanceof DateTimeInterface)
+            Mockery::on(fn ($value) => $value instanceof DateTimeInterface)
         );
 
     Log::shouldReceive('warning')->once();
@@ -69,7 +69,7 @@ it('throttles unusual request rates', function (): void {
         ->with(
             'request_rate:127.0.0.1',
             0,
-            \Mockery::on(fn ($value) => $value instanceof DateTimeInterface)
+            Mockery::on(fn ($value) => $value instanceof DateTimeInterface)
         )
         ->andReturn(false);
 
@@ -106,7 +106,7 @@ it('blocks ip addresses after repeated suspicious activity', function (): void {
         ->with(
             'blocked_ip:127.0.0.1',
             true,
-            \Mockery::on(fn ($value) => $value instanceof DateTimeInterface)
+            Mockery::on(fn ($value) => $value instanceof DateTimeInterface)
         );
 
     Log::shouldReceive('warning')->twice();

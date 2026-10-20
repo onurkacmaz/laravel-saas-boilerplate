@@ -1,5 +1,10 @@
 <?php
 
+use App\Models\Organization;
+use App\Models\Role;
+use App\Models\User;
+use Tests\TestCase;
+
 /*
 |--------------------------------------------------------------------------
 | Test Case
@@ -11,7 +16,7 @@
 |
 */
 
-pest()->extend(Tests\TestCase::class)
+pest()->extend(TestCase::class)
  // ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
     ->in('Feature');
 
@@ -45,18 +50,18 @@ expect()->extend('toBeOne', function () {
  * Create an organization and attach a new user to it with an organization
  * scoped role of the given slug ("owner", "admin", "member"...).
  *
- * @return array{0: \App\Models\User, 1: \App\Models\Organization, 2: \App\Models\Role}
+ * @return array{0: User, 1: Organization, 2: Role}
  */
-function userInOrganization(string $roleSlug = 'member', ?\App\Models\Organization $organization = null): array
+function userInOrganization(string $roleSlug = 'member', ?Organization $organization = null): array
 {
-    $user = \App\Models\User::factory()->create();
-    $organization ??= \App\Models\Organization::factory()->create();
+    $user = User::factory()->create();
+    $organization ??= Organization::factory()->create();
 
-    $role = \App\Models\Role::query()->withoutOrganization()
+    $role = Role::query()->withoutOrganization()
         ->where('organization_id', $organization->id)
         ->where('slug', $roleSlug)
         ->first()
-        ?? \App\Models\Role::factory()->create([
+        ?? Role::factory()->create([
             'organization_id' => $organization->id,
             'slug' => $roleSlug,
             'name' => ucfirst($roleSlug),

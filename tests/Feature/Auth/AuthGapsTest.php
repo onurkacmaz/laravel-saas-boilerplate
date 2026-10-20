@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
+use Features\Acl\Shared\Support\SystemRoles;
 use Features\Auth\Register\Events\UserRegisterSucceeded;
 use Features\Auth\Register\Notifications\FailedRegistrationNotification;
 use Features\Auth\Register\Notifications\WelcomeNotification;
@@ -195,11 +198,11 @@ it('derives a strong signing key from short JWT secrets', function (): void {
 });
 
 it('only assigns system default roles to new users', function (): void {
-    $tenantDefault = \App\Models\Role::factory()->create([
-        'organization_id' => \App\Models\Organization::factory()->create()->id,
+    $tenantDefault = Role::factory()->create([
+        'organization_id' => Organization::factory()->create()->id,
         'is_default' => true,
     ]);
-    $systemDefault = \Features\Acl\Shared\Support\SystemRoles::ensure('member');
+    $systemDefault = SystemRoles::ensure('member');
 
     $user = User::factory()->create();
     $user->assignDefaultRole();
