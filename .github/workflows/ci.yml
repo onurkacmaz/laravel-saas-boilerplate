@@ -7,6 +7,13 @@ on:
     branches: [ main, develop ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -43,8 +50,8 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql, dom, filter, gd, json, pgsql, redis
-          coverage: xdebug
+          extensions: mbstring, xml, ctype, iconv, intl, bcmath, pdo_pgsql, dom, filter, gd, json, pgsql, redis
+          coverage: pcov
 
       - name: Copy .env
         run: php -r "file_exists('.env') || copy('.env.example', '.env');"
@@ -90,13 +97,12 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql
-          tools: php-cs-fixer
+          extensions: mbstring, xml, ctype, iconv, intl, bcmath, pdo_pgsql
 
       - name: Install Dependencies
         run: composer install --prefer-dist --no-progress
 
-      - name: Run PHP CS Fixer
+      - name: Check code style (Pint)
         run: vendor/bin/pint --test
 
   security:
@@ -109,6 +115,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
+          extensions: bcmath
 
       - name: Install Dependencies
         run: composer install --prefer-dist --no-progress
@@ -122,7 +129,8 @@ jobs:
       - tests
       - code-quality
       - security
-    if: github.ref == 'refs/heads/main'
+    # Only deploy from the upstream repository (forks have no deploy hook).
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.repository == 'onurkacmaz/laravel-saas-boilerplate'
 
     steps:
       - uses: actions/checkout@v4
@@ -131,7 +139,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo_pgsql
+          extensions: mbstring, xml, ctype, iconv, intl, bcmath, pdo_pgsql
 
       - name: Install Dependencies
         run: composer install --prefer-dist --no-progress --no-dev --optimize-autoloader
@@ -146,7 +154,7 @@ jobs:
           DEPLOY_HOOK_URL: ${{ secrets.LARAVEL_CLOUD_DEPLOY_HOOK }}
         run: |
           if [ -z "$DEPLOY_HOOK_URL" ]; then
-            echo "Missing deploy hook secret. Set LARAVEL_CLOUD_DEPLOY_HOOK in repository secrets."
-            exit 1
+            echo "::warning::LARAVEL_CLOUD_DEPLOY_HOOK is not set; skipping deployment."
+            exit 0
           fi
           curl -fsS -o /dev/null -X POST "$DEPLOY_HOOK_URL"

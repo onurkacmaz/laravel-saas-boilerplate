@@ -1,13 +1,23 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "onurkacmaz/laravel-saas-boilerplate",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "Open-source multi-tenant SaaS starter kit built with Laravel: organizations, roles & permissions, Stripe billing, 2FA, webhooks, audit logs and GDPR tooling.",
     "keywords": [
         "laravel",
-        "framework"
+        "saas",
+        "boilerplate",
+        "multi-tenant",
+        "stripe",
+        "cashier",
+        "starter-kit"
     ],
+    "homepage": "https://github.com/onurkacmaz/laravel-saas-boilerplate",
     "license": "MIT",
+    "support": {
+        "issues": "https://github.com/onurkacmaz/laravel-saas-boilerplate/issues",
+        "source": "https://github.com/onurkacmaz/laravel-saas-boilerplate"
+    },
     "require": {
         "php": "^8.4",
         "dedoc/scramble": "^0.12.35",
@@ -70,6 +80,12 @@
         "test": [
             "@php artisan config:clear --ansi",
             "@php artisan test"
+        ],
+        "lint": [
+            "pint --test"
+        ],
+        "format": [
+            "pint"
         ]
     },
     "extra": {
