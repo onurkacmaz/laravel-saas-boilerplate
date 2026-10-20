@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -7,7 +8,7 @@ use Tests\TestCase;
 uses(TestCase::class, RefreshDatabase::class);
 
 it('registers a user with valid credentials', function (): void {
-    $ownerRole = \App\Models\Role::query()->create([
+    $ownerRole = Role::query()->create([
         'name' => 'Owner',
         'slug' => 'owner',
     ]);

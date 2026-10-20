@@ -7,7 +7,7 @@ use Tests\TestCase;
 uses(TestCase::class);
 
 afterEach(function (): void {
-    \Mockery::close();
+    Mockery::close();
 });
 
 it('remembers values with generated keys by default ttl', function (): void {
@@ -15,7 +15,7 @@ it('remembers values with generated keys by default ttl', function (): void {
 
     Cache::shouldReceive('remember')
         ->once()
-        ->with('saas:dashboard', CacheService::DURATION_MEDIUM, \Mockery::type(Closure::class))
+        ->with('saas:dashboard', CacheService::DURATION_MEDIUM, Mockery::type(Closure::class))
         ->andReturn('cached-value');
 
     $result = CacheService::remember('dashboard', fn () => 'computed');
@@ -28,22 +28,22 @@ it('uses specialized helpers to cache organization and user data', function (): 
 
     Cache::shouldReceive('remember')
         ->once()
-        ->with('saas:organization:org-1', CacheService::DURATION_LONG, \Mockery::type(Closure::class))
+        ->with('saas:organization:org-1', CacheService::DURATION_LONG, Mockery::type(Closure::class))
         ->andReturn('organization');
 
     Cache::shouldReceive('remember')
         ->once()
-        ->with('saas:user:user-1', CacheService::DURATION_LONG, \Mockery::type(Closure::class))
+        ->with('saas:user:user-1', CacheService::DURATION_LONG, Mockery::type(Closure::class))
         ->andReturn('user');
 
     Cache::shouldReceive('remember')
         ->once()
-        ->with('saas:plan:plan-1', CacheService::DURATION_DAY, \Mockery::type(Closure::class))
+        ->with('saas:plan:plan-1', CacheService::DURATION_DAY, Mockery::type(Closure::class))
         ->andReturn('plan');
 
     Cache::shouldReceive('remember')
         ->once()
-        ->with('saas:subscription:org-1', CacheService::DURATION_MEDIUM, \Mockery::type(Closure::class))
+        ->with('saas:subscription:org-1', CacheService::DURATION_MEDIUM, Mockery::type(Closure::class))
         ->andReturn('subscription');
 
     expect(CacheService::rememberOrganization('org-1', fn () => 'computed'))->toBe('organization');
@@ -55,10 +55,10 @@ it('uses specialized helpers to cache organization and user data', function (): 
 it('remembers tagged cache when redis is the default store', function (): void {
     config(['cache.prefix' => 'saas', 'cache.default' => 'redis']);
 
-    $taggedCache = \Mockery::mock();
+    $taggedCache = Mockery::mock();
     $taggedCache->shouldReceive('remember')
         ->once()
-        ->with('saas:reporting', CacheService::DURATION_MEDIUM, \Mockery::type(Closure::class))
+        ->with('saas:reporting', CacheService::DURATION_MEDIUM, Mockery::type(Closure::class))
         ->andReturn('tagged');
 
     Cache::shouldReceive('tags')
@@ -76,7 +76,7 @@ it('falls back to remember when tags are not supported', function (): void {
 
     Cache::shouldReceive('remember')
         ->once()
-        ->with('saas:reporting', CacheService::DURATION_MEDIUM, \Mockery::type(Closure::class))
+        ->with('saas:reporting', CacheService::DURATION_MEDIUM, Mockery::type(Closure::class))
         ->andReturn('fallback');
 
     $result = CacheService::rememberWithTags(['reports'], 'reporting', fn () => 'computed');
@@ -101,7 +101,7 @@ it('clears cached entities with prefixed keys', function (): void {
 it('clears cache tags only when redis is enabled', function (): void {
     config(['cache.default' => 'redis', 'cache.prefix' => 'saas']);
 
-    $taggedCache = \Mockery::mock();
+    $taggedCache = Mockery::mock();
     $taggedCache->shouldReceive('flush')->once();
 
     Cache::shouldReceive('tags')

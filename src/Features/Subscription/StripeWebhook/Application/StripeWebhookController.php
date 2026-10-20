@@ -5,6 +5,7 @@ namespace Features\Subscription\StripeWebhook\Application;
 use App\Models\Organization;
 use Dedoc\Scramble\Attributes\Group;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
+use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
 use Features\Subscription\Shared\Events\PaymentFailed;
 use Features\Subscription\Shared\Events\PaymentSucceeded;
 use Features\Subscription\Shared\Events\SubscriptionCanceled;
@@ -113,7 +114,7 @@ class StripeWebhookController extends CashierController
      * Find the organization and local subscription a Stripe subscription
      * payload refers to (by metadata first, then by Stripe customer id).
      *
-     * @return array{0: Organization|null, 1: \Features\Subscription\Infrastructure\Eloquent\Models\Subscription|null}
+     * @return array{0: Organization|null, 1: Subscription|null}
      */
     protected function resolveSubscription(array $data): array
     {

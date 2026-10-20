@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Features\Compliance\GdprDelete\Application\GdprDelete;
 use Features\Compliance\GdprDelete\Application\GdprDeleteHandler;
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,7 +35,7 @@ it('cancels the subscriptions of organizations that are deleted with the account
         'stripe_id' => Subscription::makeLocalStripeId(),
     ]);
 
-    app(GdprDeleteHandler::class)(new \Features\Compliance\GdprDelete\Application\GdprDelete($owner));
+    app(GdprDeleteHandler::class)(new GdprDelete($owner));
 
     expect($subscription->fresh()->stripe_status)->toBe('canceled');
 });

@@ -2,6 +2,7 @@
 
 use App\Models\Invitation;
 use App\Models\Organization;
+use App\Models\OrganizationSetting;
 use App\Models\Role;
 use App\Models\User;
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
@@ -11,6 +12,7 @@ use Features\Tenant\Shared\Support\OrganizationRoles;
 use Features\Tenant\Shared\Support\OrganizationSlug;
 use Features\Webhooks\Infrastructure\Eloquent\Models\Webhook;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Infrastructure\Tenant\TenantService;
 
 uses(RefreshDatabase::class);
@@ -38,7 +40,7 @@ it('stops billing and integrations when an organization is deleted', function ()
 it('renders invitation e-mails with frontend links', function (): void {
     config(['app.frontend_url' => 'https://app.example.test/']);
     $invitation = Invitation::factory()->create();
-    $notifiable = (new \Illuminate\Notifications\AnonymousNotifiable)->route('mail', $invitation->email);
+    $notifiable = (new AnonymousNotifiable)->route('mail', $invitation->email);
     $notification = new OrganizationInvitation($invitation);
     $mail = $notification->toMail($notifiable);
 
@@ -191,7 +193,7 @@ it('renames the slug when the organization is renamed', function (): void {
 
 it('merges preference updates instead of replacing them', function (): void {
     [$admin, $organization] = userInOrganization('admin');
-    \App\Models\OrganizationSetting::factory()->forOrganization($organization)->withNotifications(['email' => true, 'sms' => true])->create();
+    OrganizationSetting::factory()->forOrganization($organization)->withNotifications(['email' => true, 'sms' => true])->create();
 
     $this->actingAs($admin, 'sanctum')
         ->withHeader('X-Organization-Id', $organization->id)

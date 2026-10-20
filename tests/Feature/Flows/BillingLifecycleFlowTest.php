@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
 use Features\Subscription\Shared\Notifications\PaymentFailedNotification;
@@ -17,7 +18,7 @@ uses(RefreshDatabase::class);
 it('moves an organization from the free plan to a paid plan and back', function (): void {
     Notification::fake();
     $stripe = FakeStripeClient::install();
-    $owner = \App\Models\User::factory()->create();
+    $owner = User::factory()->create();
 
     $free = Plan::factory()->create(['slug' => 'free', 'price' => 0, 'stripe_price_id' => null, 'trial_days' => 0, 'limits' => ['users' => 1]]);
     $pro = Plan::factory()->create(['slug' => 'pro', 'price' => 2900, 'stripe_price_id' => 'price_pro', 'trial_days' => 0, 'limits' => ['users' => 25]]);

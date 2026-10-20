@@ -15,12 +15,16 @@ use Features\Tenant\RemoveUserFromOrganization\Events\UserRemovedFromOrganizatio
 use Features\Tenant\SendInvitation\Events\InvitationSent;
 use Features\Tenant\UpdateOrganization\Events\OrganizationUpdated;
 use Features\Tenant\UpdateUserRoleOnOrganization\Events\UserRoleUpdated;
+use Features\Webhooks\DeliverWebhook\Application\DeliverWebhook;
+use Features\Webhooks\DeliverWebhook\Application\DeliverWebhookHandler;
 use Features\Webhooks\Infrastructure\Eloquent\Models\Webhook;
+use Features\Webhooks\Infrastructure\Eloquent\Models\WebhookDelivery;
 use Features\Webhooks\Shared\Jobs\DispatchWebhookJob;
 use Features\Webhooks\Shared\Support\WebhookDispatcher;
 use Features\Webhooks\Shared\Support\WebhookRules;
 use Features\Webhooks\Shared\Support\WebhookUrlGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 
@@ -103,8 +107,8 @@ it('searches webhooks and filters deliveries', function (): void {
     [$admin, $organization] = userInOrganization('admin');
     $billing = Webhook::factory()->forOrganization($organization)->create(['name' => 'Billing sync', 'url' => 'https://billing.example.com/hook']);
     Webhook::factory()->forOrganization($organization)->create(['name' => 'Slack', 'url' => 'https://hooks.example.com/slack']);
-    \Features\Webhooks\Infrastructure\Eloquent\Models\WebhookDelivery::factory()->forWebhook($billing)->successful()->count(2)->create();
-    \Features\Webhooks\Infrastructure\Eloquent\Models\WebhookDelivery::factory()->forWebhook($billing)->failed()->create();
+    WebhookDelivery::factory()->forWebhook($billing)->successful()->count(2)->create();
+    WebhookDelivery::factory()->forWebhook($billing)->failed()->create();
 
     $this->actingAs($admin, 'sanctum')
         ->withHeader('X-Organization-Id', $organization->id)
@@ -121,12 +125,12 @@ it('searches webhooks and filters deliveries', function (): void {
 });
 
 it('records network errors and blocked targets as failed deliveries', function (): void {
-    Http::fake(fn () => throw new \Illuminate\Http\Client\ConnectionException('Connection timed out'));
+    Http::fake(fn () => throw new ConnectionException('Connection timed out'));
 
     $webhook = Webhook::factory()->create(['url' => 'https://example.com/hook', 'events' => ['*']]);
 
-    $delivery = (new \Features\Webhooks\DeliverWebhook\Application\DeliverWebhookHandler)(
-        new \Features\Webhooks\DeliverWebhook\Application\DeliverWebhook($webhook, 'member.added', ['a' => 1])
+    $delivery = (new DeliverWebhookHandler)(
+        new DeliverWebhook($webhook, 'member.added', ['a' => 1])
     );
 
     expect($delivery->status)->toBe('failed')
@@ -134,8 +138,8 @@ it('records network errors and blocked targets as failed deliveries', function (
 
     $internal = Webhook::factory()->create(['url' => 'http://127.0.0.1/hook', 'events' => ['*']]);
 
-    $blocked = (new \Features\Webhooks\DeliverWebhook\Application\DeliverWebhookHandler)(
-        new \Features\Webhooks\DeliverWebhook\Application\DeliverWebhook($internal, 'member.added', ['a' => 1])
+    $blocked = (new DeliverWebhookHandler)(
+        new DeliverWebhook($internal, 'member.added', ['a' => 1])
     );
 
     expect($blocked->status)->toBe('failed')
