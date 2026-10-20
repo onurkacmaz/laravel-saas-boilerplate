@@ -21,7 +21,7 @@
     "require": {
         "php": "^8.4",
         "ext-openssl": "*",
-        "dedoc/scramble": "^0.12.35",
+        "dedoc/scramble": "^0.13.48",
         "firebase/php-jwt": "^7.0",
         "laravel/cashier": "^16.0",
         "laravel/framework": "^12.0",
