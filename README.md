@@ -382,6 +382,7 @@ Each contributor adds one section, named by its `section()` method. Names alread
 | Variable | Description |
 |----------|-------------|
 | `APP_URL`, `FRONTEND_URL` | API URL, and the frontend URL used in e-mail links. |
+| `DOCS_URL` | Documentation linked from the welcome e-mail. Empty by default: the e-mail has no documentation link. |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed frontend origins. |
 | `DB_*`, `REDIS_*`, `QUEUE_CONNECTION`, `CACHE_STORE` | Infrastructure settings. |
 | `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | Stripe credentials. |

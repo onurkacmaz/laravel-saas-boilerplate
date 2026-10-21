@@ -152,4 +152,16 @@ return [
     */
 
     'frontend_url' => env('FRONTEND_URL', env('FE_URL')),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Documentation URL
+    |--------------------------------------------------------------------------
+    |
+    | Where the welcome e-mail sends new users for help. Leave it empty when
+    | the application has no documentation: the e-mail then leaves it out.
+    |
+    */
+
+    'docs_url' => env('DOCS_URL') ?: null,
 ];
