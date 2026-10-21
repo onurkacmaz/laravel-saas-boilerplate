@@ -76,3 +76,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `TenantContext::runAs()` and `runWithoutTenant()` run code for another tenant, or none, and restore the previous one.
 - The SSRF guard moved to `Infrastructure\Security` (`UrlGuard`, `SafeUrl` rule) so any feature requesting user-supplied URLs can use it, with a neutral setting: `SECURITY_ALLOW_PRIVATE_URLS`. `WebhookUrlGuard`, `SafeWebhookUrl` and `WEBHOOKS_ALLOW_PRIVATE_URLS` still work and are deprecated.
 - `IpWhitelist::allows()` and the `IpOrCidr` rule match and validate IP allow-lists stored with application data. `ip.whitelist` only takes lists written in the route.
+- `OrganizationSubscriptionChanged` is raised after a subscription is created, updated or canceled, with the plan now in effect, so modules can reconcile their resources after a downgrade.

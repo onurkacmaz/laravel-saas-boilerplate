@@ -9,8 +9,10 @@ use Features\Subscription\GetPlans\Providers\GetPlansServiceProvider;
 use Features\Subscription\GetSubscription\Providers\GetSubscriptionServiceProvider;
 use Features\Subscription\GetUsage\Providers\GetUsageServiceProvider;
 use Features\Subscription\Shared\Commands\SendTrialEndingNotifications;
+use Features\Subscription\Shared\Listeners\DispatchOrganizationSubscriptionChanged;
 use Features\Subscription\StripeWebhook\Providers\StripeWebhookServiceProvider;
 use Features\Subscription\Subscribe\Providers\SubscribeServiceProvider;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class SubscriptionServiceProvider extends ServiceProvider
@@ -33,6 +35,8 @@ class SubscriptionServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Event::subscribe(DispatchOrganizationSubscriptionChanged::class);
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SendTrialEndingNotifications::class,

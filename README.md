@@ -247,6 +247,8 @@ PlanSeeder::extend('pro-monthly', limits: ['projects' => 50], features: ['projec
 $this->app->tag([ProjectsSeeder::class], DatabaseSeeder::MODULE_SEEDERS);
 ```
 
+Limits only guard new resources. When a plan changes (a downgrade, a canceled subscription), `OrganizationSubscriptionChanged` is raised with the organization and the plan now in effect (`null` without an active subscription); listen to it to bring existing resources in line, e.g. by pausing the ones above the new limit. It can be raised without a plan change, so keep the listener idempotent.
+
 ## Outgoing Webhooks
 
 Admins register endpoints with `POST /api/v1/webhooks` and subscribe them to events. Subscriptions accept exact event names, wildcards such as `member.*`, or `*` for everything. `GET /api/v1/webhooks/events` lists the available events.
