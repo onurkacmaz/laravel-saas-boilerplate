@@ -6,6 +6,7 @@ use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use Features\Acl\Shared\Support\SystemRoles;
+use Features\Tenant\DeleteOrganization\Events\OrganizationDeleted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -84,6 +85,12 @@ class GdprDeleteHandler
 
             $user->delete();
         });
+
+        // Same event as deleting an organization through the API, so that
+        // listeners (webhooks, application cleanup) see erased organizations too.
+        foreach ($organizationsToDelete as $organization) {
+            event(new OrganizationDeleted($organization));
+        }
 
         Log::info('GDPR data deletion completed', ['user_id' => $user->id]);
     }

@@ -4,13 +4,26 @@ namespace Features\Compliance\Shared\Support;
 
 use App\Models\Role;
 use App\Models\User;
+use Features\Compliance\Shared\Contracts\ExportsUserData;
+use LogicException;
 
 /**
  * Builds the GDPR (Art. 15 / Art. 20) export of everything stored about a user.
  */
 final class UserDataExporter
 {
+    /**
+     * Container tag of the ExportsUserData implementations whose sections are
+     * appended to the export.
+     */
+    public const string CONTRIBUTORS = 'gdpr.user-data';
+
     public function export(User $user): array
+    {
+        return $this->withContributions($user, $this->core($user));
+    }
+
+    private function core(User $user): array
     {
         $user->loadMissing(['organizations', 'ownedOrganizations.subscriptions.plan', 'tokens']);
 
@@ -64,5 +77,21 @@ final class UserDataExporter
                 'created_at' => $token->created_at?->toIso8601String(),
             ])->values()->toArray(),
         ];
+    }
+
+    private function withContributions(User $user, array $data): array
+    {
+        /** @var ExportsUserData $contributor */
+        foreach (app()->tagged(self::CONTRIBUTORS) as $contributor) {
+            $section = $contributor->section();
+
+            if (array_key_exists($section, $data)) {
+                throw new LogicException("The GDPR export already has a [{$section}] section.");
+            }
+
+            $data[$section] = $contributor->export($user);
+        }
+
+        return $data;
     }
 }
