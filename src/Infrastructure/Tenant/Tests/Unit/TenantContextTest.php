@@ -114,3 +114,28 @@ it('clears tenant context', function (): void {
     expect(TenantContext::getOrganization())->toBeNull();
     expect(TenantContext::getUser())->toBeNull();
 });
+
+it('runs a callback for another tenant and restores the current one', function (): void {
+    $current = new Organization;
+    $other = new Organization;
+    TenantContext::setOrganization($current);
+
+    $seen = TenantContext::runAs($other, fn () => TenantContext::getOrganization());
+
+    expect($seen)->toBe($other)
+        ->and(TenantContext::runWithoutTenant(fn () => TenantContext::getOrganization()))->toBeNull()
+        ->and(TenantContext::getOrganization())->toBe($current);
+});
+
+it('restores the tenant when the callback throws', function (): void {
+    $current = new Organization;
+    TenantContext::setOrganization($current);
+
+    try {
+        TenantContext::runWithoutTenant(fn () => throw new RuntimeException('failed'));
+    } catch (RuntimeException) {
+        //
+    }
+
+    expect(TenantContext::getOrganization())->toBe($current);
+});

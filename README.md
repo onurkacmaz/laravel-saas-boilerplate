@@ -152,6 +152,8 @@ curl http://localhost/api/v1/invitations \
 
 The tenant context is only set when the authenticated user belongs to that organization. Requests without a valid context get `403`.
 
+Models using `BelongsToOrganizationTrait` are scoped to the current tenant and assigned to it when created. To act for another organization (in a job, a listener) or to create a system record (`organization_id = NULL`), wrap the code in `TenantContext::runAs($organization, fn () => ...)` or `TenantContext::runWithoutTenant(fn () => ...)`; the previous tenant is restored afterwards.
+
 Middleware available to routes:
 
 | Alias | Purpose |
@@ -230,9 +232,24 @@ UsageTracker::registerCounter('projects', fn (Organization $organization) => $or
 
 The counter also feeds `GET /api/v1/usage`. Resources without a counter count as 0, so their limit never blocks.
 
+A plan without a limit for a resource makes it unlimited. Register the limit to use in that case (and for organizations without a subscription):
+
+```php
+ResourceLimits::registerDefault('projects', 3);
+```
+
+Add your resources to the seeded plans from the same `boot()` method, and tag your module's own seeders so `php artisan db:seed` runs them after the core ones:
+
+```php
+PlanSeeder::extend('free', limits: ['projects' => 3]);
+PlanSeeder::extend('pro-monthly', limits: ['projects' => 50], features: ['project-export']);
+
+$this->app->tag([ProjectsSeeder::class], DatabaseSeeder::MODULE_SEEDERS);
+```
+
 ## Outgoing Webhooks
 
-Admins register endpoints with `POST /api/v1/webhooks` and subscribe them to events. Subscriptions accept exact event names, wildcards such as `member.*`, or `*` for everything.
+Admins register endpoints with `POST /api/v1/webhooks` and subscribe them to events. Subscriptions accept exact event names, wildcards such as `member.*`, or `*` for everything. `GET /api/v1/webhooks/events` lists the available events.
 
 | Group | Events |
 |-------|--------|
@@ -241,6 +258,12 @@ Admins register endpoints with `POST /api/v1/webhooks` and subscribe them to eve
 | Invitations | `invitation.sent`, `invitation.accepted`, `invitation.rejected`, `invitation.canceled` |
 | Subscriptions | `subscription.created`, `subscription.updated`, `subscription.canceled` |
 | Payments | `payment.succeeded`, `payment.failed` |
+
+Dispatch your own events with `WebhookDispatcher::dispatch()` and add their names to `webhooks.events` from your service provider, so the list shows them:
+
+```php
+config(['webhooks.events' => [...config('webhooks.events'), 'project.created']]);
+```
 
 Each delivery is a JSON `POST` with the following headers:
 - `X-Webhook-Event`: the event name.
