@@ -61,3 +61,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - GDPR erasure,
   - webhook delivery.
 - Coverage now measures `app/` too and excludes test files. CI enforces a minimum of 90%; local line coverage is 98.5%.
+- `plan.feature:<feature>` middleware, which requires a feature of the organization's plan.
+- The organization feature flags are listed in `config/settings.php`, so applications can add their own. They were hard-coded to `advanced_analytics`, `api_access` and `custom_branding`.
