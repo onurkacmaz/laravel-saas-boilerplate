@@ -61,3 +61,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - GDPR erasure,
   - webhook delivery.
 - Coverage now measures `app/` too and excludes test files. CI enforces a minimum of 90%; local line coverage is 98.5%.
+- Applications can add their own sections to the GDPR export (`ExportsUserData` contributors tagged `UserDataExporter::CONTRIBUTORS`).
+- GDPR erasure now raises `OrganizationDeleted` for the organizations it deletes, like `DELETE /organizations/{id}`. Listeners never saw those deletions before.

@@ -15,6 +15,7 @@
 - [Authentication](#authentication)
 - [Billing](#billing)
 - [Outgoing Webhooks](#outgoing-webhooks)
+- [GDPR](#gdpr)
 - [Environment & Configuration](#environment--configuration)
 - [Background Jobs & Scheduling](#background-jobs--scheduling)
 - [Testing](#testing)
@@ -240,6 +241,24 @@ Delivery rules:
 - Failed deliveries are retried with backoff, up to `retry_limit` attempts.
 - Every attempt is listed under `GET /api/v1/webhooks/{id}/deliveries`.
 - URLs that resolve to private or reserved networks are rejected (SSRF protection).
+
+## GDPR
+
+| Action | Endpoint |
+|--------|----------|
+| Export | `GET /api/v1/gdpr/export` (JSON) or `GET /api/v1/gdpr/download` (file) |
+| Request deletion | `POST /api/v1/gdpr/request-deletion`, cancel with `POST /api/v1/gdpr/cancel-deletion` |
+| Erase now | `DELETE /api/v1/gdpr/delete` with the current `password` |
+
+Erasure hands owned organizations over to another admin, or deletes them. Deleted organizations raise the same `OrganizationDeleted` event as `DELETE /organizations/{id}`, so cleanup listeners run in both cases.
+
+Add your application's data to the export by implementing `Features\Compliance\Shared\Contracts\ExportsUserData` and tagging it in a service provider:
+
+```php
+$this->app->tag([ProjectsExporter::class], UserDataExporter::CONTRIBUTORS);
+```
+
+Each contributor adds one section, named by its `section()` method. Names already used by the export are refused.
 
 ## Environment & Configuration
 
