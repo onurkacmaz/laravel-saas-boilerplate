@@ -11,6 +11,14 @@ return [
         'feature_flags' => null,
     ],
 
+    // Feature flags an organization can toggle in its settings. Applications
+    // add their own flags here (or merge them in from a service provider).
+    'feature_flags' => [
+        'advanced_analytics',
+        'api_access',
+        'custom_branding',
+    ],
+
     'invitations' => [
         // Number of days an invitation stays valid.
         'expire_days' => (int) env('INVITATION_EXPIRE_DAYS', 7),

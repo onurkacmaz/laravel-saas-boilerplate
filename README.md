@@ -44,7 +44,7 @@ The project is maintained as a reference implementation: fork it, adapt it to yo
 - Organization-wide actions require an admin or owner role. Deleting an organization requires the owner.
 - Every `{organization}` URL is checked against the tenant header, so a member of one organization cannot act on another.
 - Invitation lifecycle (send, accept, reject, cancel, expire) with e-mail notifications. E-mails are compared case-insensitively.
-- Per-organization settings: locale, timezone, currency, notification preferences and feature flags.
+- Per-organization settings: locale, timezone, currency, notification preferences and feature flags. The allowed flags are listed in `config/settings.php`.
 - Custom roles and permissions per organization, on top of read-only system roles.
 
 **Authentication**
@@ -162,6 +162,7 @@ Middleware available to routes:
 | `tenant.role:owner` | Requires the organization owner. |
 | `tenant.permission:<slug>` | Requires a permission in the current organization, for example `tenant.permission:projects.manage`. |
 | `subscription.required` | Requires an active subscription (`402` otherwise). |
+| `plan.feature:<feature>` | Requires a feature of the organization's plan (`402` otherwise), for example `plan.feature:webhooks`. |
 | `limit:<resource>` | Enforces a plan limit, for example `limit:users`. See [Plan limits for your own resources](#plan-limits-for-your-own-resources). |
 | `rate.limit` | Plan-based rate limiting. |
 | `ip.whitelist:1.2.3.4,10.0.0.0/8` | Allows only the listed IPs or CIDR ranges. |

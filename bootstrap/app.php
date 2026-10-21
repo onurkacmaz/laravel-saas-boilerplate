@@ -4,6 +4,7 @@ use Features\Audit\Infrastructure\Middleware\AuditMiddleware;
 use Features\Subscription\Infrastructure\Middleware\CheckResourceLimit;
 use Features\Subscription\Infrastructure\Middleware\PlanBasedRateLimitMiddleware;
 use Features\Subscription\Infrastructure\Middleware\RequireActiveSubscription;
+use Features\Subscription\Infrastructure\Middleware\RequirePlanFeature;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -38,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.permission' => RequireOrganizationPermission::class,
             'subscription.required' => RequireActiveSubscription::class,
             'limit' => CheckResourceLimit::class,
+            'plan.feature' => RequirePlanFeature::class,
             'rate.limit' => PlanBasedRateLimitMiddleware::class,
             'security.check' => CheckSuspiciousActivity::class,
             'ip.whitelist' => IpWhitelist::class,
