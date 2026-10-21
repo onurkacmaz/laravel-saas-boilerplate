@@ -119,3 +119,11 @@ it('skips clearing tags for non redis drivers', function (): void {
 
     CacheService::clearTag('notifications');
 });
+
+it('forgets values stored with remember', function (): void {
+    config(['cache.prefix' => 'saas']);
+
+    Cache::shouldReceive('forget')->once()->with('saas:status-page:acme')->andReturn(true);
+
+    expect(CacheService::forget('status-page:acme'))->toBeTrue();
+});

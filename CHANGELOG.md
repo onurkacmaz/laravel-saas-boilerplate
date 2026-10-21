@@ -61,3 +61,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - GDPR erasure,
   - webhook delivery.
 - Coverage now measures `app/` too and excludes test files. CI enforces a minimum of 90%; local line coverage is 98.5%.
+- `AuditLogger::log()` and `action()` accept an `organizationId`, to audit events outside a tenant request (queued jobs, scheduled commands). They could only use the current tenant.
+- `CacheService::forget()` removes a value stored with `remember()`. Only the fixed `clear*()` methods existed.

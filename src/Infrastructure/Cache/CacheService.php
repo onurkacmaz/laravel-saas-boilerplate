@@ -78,6 +78,14 @@ class CacheService
     }
 
     /**
+     * Forget a value stored with remember().
+     */
+    public static function forget(string $key): bool
+    {
+        return Cache::forget(self::generateKey($key));
+    }
+
+    /**
      * Clear organization cache
      */
     public static function clearOrganization(string $organizationId): void
