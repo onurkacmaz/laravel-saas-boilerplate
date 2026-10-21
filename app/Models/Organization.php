@@ -95,6 +95,44 @@ class Organization extends Model
     }
 
     /**
+     * Whether the user holds the permission (by slug) in this organization.
+     *
+     * Owners and admins hold every permission. Other members hold the
+     * permissions attached to their membership role and to the roles of this
+     * organization assigned to them with the ACL API. System permissions and
+     * the organization's own permissions both count; deleted roles and
+     * permissions do not.
+     */
+    public function userHasPermission(User $user, string $permission): bool
+    {
+        if ($this->isAdmin($user)) {
+            return true;
+        }
+
+        $membershipRoleId = $this->users()->where('user_id', $user->id)->first()?->pivot?->role_id;
+
+        // Former members keep their user_roles rows; they grant nothing here.
+        if (! $membershipRoleId) {
+            return false;
+        }
+
+        $roleIds = Role::query()
+            ->withoutOrganization()
+            ->where('organization_id', $this->id)
+            ->whereHas('users', fn ($query) => $query->where('users.id', $user->id))
+            ->pluck('id')
+            ->push($membershipRoleId)
+            ->unique();
+
+        return Permission::query()
+            ->withoutOrganization()
+            ->where('slug', $permission)
+            ->where(fn ($query) => $query->whereNull('organization_id')->orWhere('organization_id', $this->id))
+            ->whereHas('roles', fn ($query) => $query->withoutOrganization()->whereIn('roles.id', $roleIds))
+            ->exists();
+    }
+
+    /**
      * Resolve the role the given user holds in this organization.
      *
      * The tenant scope is bypassed on purpose: system roles are stored with a
