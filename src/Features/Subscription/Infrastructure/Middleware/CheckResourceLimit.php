@@ -36,7 +36,10 @@ class CheckResourceLimit
 
         if ($limits->hasReached($resourceType, $current)) {
             return response()->json([
-                'message' => __('You have reached the limit for :resource.', ['resource' => $resourceType]),
+                'message' => __('You have reached the limit for :resource.', [
+                    // "status_pages" reads as "status pages", which modules can translate.
+                    'resource' => __(str_replace('_', ' ', $resourceType)),
+                ]),
                 'resource' => $resourceType,
                 'current' => $current,
                 'limit' => $limit,

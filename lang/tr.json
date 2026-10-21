@@ -219,5 +219,13 @@
     "Your trial for **:plan** on **:organization** is ending soon.": "**:organization** için **:plan** deneme süreniz yakında bitiyor.",
     "Your trial period is active until **:date**. Enjoy full access to all features!": "Deneme süreniz **:date** tarihine kadar geçerli. Tüm özelliklerin keyfini çıkarın!",
     "Your trial will end on **:date** (:count day remaining).|Your trial will end on **:date** (:count days remaining).": "Deneme süreniz **:date** tarihinde bitecek (:count gün kaldı).|Deneme süreniz **:date** tarihinde bitecek (:count gün kaldı).",
-    "[:app] A user registration failed": "[:app] Bir kullanıcı kaydı başarısız oldu"
+    "[:app] A user registration failed": "[:app] Bir kullanıcı kaydı başarısız oldu",
+    "api calls": "API çağrısı",
+    "audit logs": "denetim kaydı",
+    "basic support": "temel destek",
+    "priority support": "öncelikli destek",
+    "projects": "proje",
+    "storage": "depolama",
+    "users": "kullanıcı",
+    "webhooks": "webhook"
 }

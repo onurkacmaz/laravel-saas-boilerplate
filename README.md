@@ -280,6 +280,8 @@ To add a language:
 2. Translate `lang/tr.json` into `lang/<code>.json`, and copy `lang/tr/` (validation, auth, passwords, pagination) to `lang/<code>/`.
 3. Modules ship their own `lang/<code>.json` and load it with `loadJsonTranslationsFrom()`.
 
+Plan limit and plan feature errors name the resource or feature in words (`status_pages` becomes "status pages", `audit-logs` "audit logs"), so a module translates its own names like any other message.
+
 Tests check that every message of the core has a Turkish translation and that the Turkish validation file has every rule.
 
 ## Billing

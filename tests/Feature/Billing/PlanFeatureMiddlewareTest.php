@@ -24,10 +24,15 @@ it('requires every listed feature of the plan', function (): void {
     $request = fn () => $this->actingAs($admin, 'sanctum')->withHeader('X-Organization-Id', $organization->id)->getJson('/api/v1/test-plan-feature');
 
     $request()->assertStatus(402)->assertJson([
-        'message' => 'Your plan does not include the audit-logs feature.',
+        'message' => 'Your plan does not include the audit logs feature.',
         'feature' => 'audit-logs',
         'upgrade_required' => true,
     ]);
+
+    $request()->assertStatus(402);
+    $this->actingAs($admin, 'sanctum')->withHeaders(['X-Organization-Id' => $organization->id, 'Accept-Language' => 'tr'])
+        ->getJson('/api/v1/test-plan-feature')
+        ->assertJsonPath('message', 'Planınız denetim kaydı özelliğini içermiyor.');
 
     $plan->forceFill(['features' => ['webhooks', 'audit-logs']])->save();
 

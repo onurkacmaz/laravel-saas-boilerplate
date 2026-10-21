@@ -31,7 +31,10 @@ class RequirePlanFeature
         foreach ($features as $feature) {
             if (! $limits->hasFeature($feature)) {
                 return response()->json([
-                    'message' => __('Your plan does not include the :feature feature.', ['feature' => $feature]),
+                    'message' => __('Your plan does not include the :feature feature.', [
+                        // "status-page-branding" reads as "status page branding", which modules can translate.
+                        'feature' => __(str_replace(['-', '_'], ' ', $feature)),
+                    ]),
                     'feature' => $feature,
                     'upgrade_required' => true,
                 ], 402); // 402 Payment Required
