@@ -21,8 +21,11 @@ class CheckSuspiciousActivity
 
     /**
      * Handle an incoming request.
+     *
+     * Usage: ->middleware('security.check'), or ->middleware('security.check:600')
+     * to allow a route more requests per minute (0 disables the rate check).
      */
-    public function handle(Request $request, Closure $next): Response
+    public function handle(Request $request, Closure $next, ?string $maxRequestsPerMinute = null): Response
     {
         $ip = $request->ip() ?? 'unknown';
 
@@ -42,7 +45,7 @@ class CheckSuspiciousActivity
         }
 
         // Check for unusual request rate
-        if ($this->hasUnusualRequestRate($ip)) {
+        if ($this->hasUnusualRequestRate($ip, $maxRequestsPerMinute !== null ? (int) $maxRequestsPerMinute : null)) {
             $this->logSuspiciousActivity($request, 'Unusual request rate detected');
             $this->incrementFailureCount($ip);
 
@@ -76,18 +79,24 @@ class CheckSuspiciousActivity
         $count = Cache::increment($key);
 
         if ($count === 1) {
-            Cache::put($key, 1, now()->addHour());
+            Cache::put($key, 1, now()->addMinutes((int) config('security.suspicious_activity.violation_window_minutes', 60)));
         }
 
         // Block IP of too many suspicious activities
-        if ($count >= 5) {
-            Cache::put("blocked_ip:$ip", true, now()->addDay());
+        if ($count >= (int) config('security.suspicious_activity.max_violations', 5)) {
+            Cache::put("blocked_ip:$ip", true, now()->addMinutes((int) config('security.suspicious_activity.block_minutes', 1440)));
             Log::warning("IP blocked due to suspicious activity: $ip");
         }
     }
 
-    protected function hasUnusualRequestRate(string $ip): bool
+    protected function hasUnusualRequestRate(string $ip, ?int $maxRequestsPerMinute = null): bool
     {
+        $maxRequestsPerMinute ??= (int) config('security.suspicious_activity.max_requests_per_minute', 100);
+
+        if ($maxRequestsPerMinute <= 0) {
+            return false;
+        }
+
         $key = "request_rate:$ip";
 
         // Fixed one-minute window: the TTL is only set when the window starts, so a
@@ -95,8 +104,7 @@ class CheckSuspiciousActivity
         Cache::add($key, 0, now()->addMinute());
         $requests = (int) Cache::increment($key);
 
-        // More than 100 requests per minute is suspicious
-        return $requests > 101;
+        return $requests > $maxRequestsPerMinute;
     }
 
     protected function logSuspiciousActivity(Request $request, string $reason): void
