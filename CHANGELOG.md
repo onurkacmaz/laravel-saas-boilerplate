@@ -24,6 +24,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Updated dependencies with published security advisories (Laravel framework, Guzzle, league/commonmark, Symfony components, PHPUnit). `firebase/php-jwt` was moved to `^7.0`; the 2FA signing key already satisfies its 256-bit minimum.
 
 ### Fixed
+- The welcome e-mail linked to `<FRONTEND_URL>/docs`, a page most frontends do not have. It now links to `DOCS_URL`, and leaves the link out when it is empty. Its dashboard link falls back to `APP_URL` like the other e-mails.
 - The "request deletion" and "cancel deletion" GDPR endpoints were swapped. The GDPR delete flow called relations that do not exist.
 - Updating an organization deactivated it and wiped omitted fields. Updates are now partial.
 - `GET /audit-logs` and `GET /audit-logs/events` always failed with a 500 error.
