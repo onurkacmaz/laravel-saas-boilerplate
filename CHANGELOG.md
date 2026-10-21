@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Removed
+- The deploy job of the CI workflow (a Laravel Cloud deploy hook). Laravel Cloud deploys on push by itself, and an application built on the boilerplate has its own deployment.
+
 ### Security
 - Authorization was missing: organization-wide actions are now restricted to admins and owners (`tenant.role` middleware), and deleting an organization to its owner.
 - A member of one organization could act on another organization by changing the `{organization}` URL parameter. The parameter must now match `X-Organization-Id`.
