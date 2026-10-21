@@ -22,7 +22,7 @@ class UpdateOrganizationSettingsRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'timezone' => ['sometimes', 'string', 'timezone:all'],
             'locale' => ['sometimes', 'string', 'in:en,tr,de,fr,es'],
             'date_format' => ['sometimes', 'string', 'in:Y-m-d,d/m/Y,m/d/Y,d.m.Y'],
@@ -32,10 +32,17 @@ class UpdateOrganizationSettingsRequest extends FormRequest
             'notification_preferences.email' => ['sometimes', 'boolean'],
             'notification_preferences.push' => ['sometimes', 'boolean'],
             'notification_preferences.sms' => ['sometimes', 'boolean'],
-            'feature_flags' => ['sometimes', 'array:advanced_analytics,api_access,custom_branding'],
-            'feature_flags.advanced_analytics' => ['sometimes', 'boolean'],
-            'feature_flags.api_access' => ['sometimes', 'boolean'],
-            'feature_flags.custom_branding' => ['sometimes', 'boolean'],
         ];
+
+        // The allowed flags are configurable (config/settings.php).
+        $flags = array_values(array_filter((array) config('settings.feature_flags', []), 'is_string'));
+
+        $rules['feature_flags'] = ['sometimes', 'array:'.implode(',', $flags)];
+
+        foreach ($flags as $flag) {
+            $rules["feature_flags.{$flag}"] = ['sometimes', 'boolean'];
+        }
+
+        return $rules;
     }
 }

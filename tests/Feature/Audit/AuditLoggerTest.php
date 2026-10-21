@@ -102,3 +102,21 @@ it('skips reads, failures, guests and disabled auditing', function (): void {
 
     expect(AuditLog::query()->count())->toBe(0);
 });
+
+it('logs for an explicit organization outside a tenant request', function (): void {
+    TenantContext::clear();
+    Auth::forgetUser();
+    $other = Organization::factory()->create();
+
+    $log = $this->logger->action('monitor.down', $this->user, ['cause' => 'Timeout'], $other->id);
+
+    expect($log->organization_id)->toBe($other->id)
+        ->and($log->user_id)->toBeNull()
+        ->and($log->metadata)->toBe(['cause' => 'Timeout']);
+
+    // The explicit organization wins over the current tenant.
+    TenantContext::setOrganization($this->organization);
+
+    expect($this->logger->log('exported', organizationId: $other->id)->organization_id)->toBe($other->id)
+        ->and($this->logger->log('exported')->organization_id)->toBe($this->organization->id);
+});

@@ -3,16 +3,47 @@
 namespace Features\Subscription\Shared\Support;
 
 use App\Models\Organization;
+use Closure;
 use Features\Subscription\Infrastructure\Eloquent\Models\Usage;
 use Infrastructure\Tenant\TenantContext;
 use RuntimeException;
 
 class UsageTracker
 {
+    /**
+     * Counters of plan-limited resources, by resource type.
+     *
+     * @var array<string, Closure(Organization): int>
+     */
+    private static array $counters = [];
+
     public function __construct(
         private ?Organization $organization = null
     ) {
         $this->organization = $organization ?? TenantContext::getOrganization();
+    }
+
+    /**
+     * Teach the tracker how to count a resource limited by plans, so that
+     * `limit:<resource>` and the usage summary see its real count. Register
+     * counters from a service provider's boot method. A counter registered for
+     * "users" or "api_calls" replaces the built-in one.
+     *
+     * @param  Closure(Organization): int  $counter
+     */
+    public static function registerCounter(string $resourceType, Closure $counter): void
+    {
+        self::$counters[$resourceType] = $counter;
+    }
+
+    public static function hasCounter(string $resourceType): bool
+    {
+        return isset(self::$counters[$resourceType]);
+    }
+
+    public static function forgetCounter(string $resourceType): void
+    {
+        unset(self::$counters[$resourceType]);
     }
 
     /**
@@ -76,8 +107,10 @@ class UsageTracker
             return 0;
         }
 
-        // This should be implemented based on actual resource counting,
-        // For example, for users:
+        if (isset(self::$counters[$resourceType])) {
+            return (int) (self::$counters[$resourceType])($this->organization);
+        }
+
         if ($resourceType === 'users') {
             return $this->organization->users()->count();
         }
@@ -87,7 +120,7 @@ class UsageTracker
             return $this->getCurrentPeriodTotal($resourceType);
         }
 
-        // For other resources, you might need to implement specific logic
+        // Resources without a counter (see registerCounter()) count as 0.
         return 0;
     }
 
