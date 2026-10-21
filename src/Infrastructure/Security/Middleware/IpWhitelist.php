@@ -14,6 +14,7 @@ class IpWhitelist
      *
      * Usage: Add ->middleware('ip.whitelist:192.168.1.1,10.0.0.0/8') to the route.
      * Both single addresses and CIDR ranges (IPv4 and IPv6) are supported.
+     * For lists stored with your data, use IpWhitelist::allows() instead.
      */
     public function handle(Request $request, Closure $next, string ...$allowedIps): Response
     {
@@ -22,15 +23,29 @@ class IpWhitelist
             return $next($request);
         }
 
-        $requestIp = $request->ip();
-
-        // Check if request IP is in the whitelist
-        if (! $requestIp || ! IpUtils::checkIp($requestIp, array_map('trim', $allowedIps))) {
+        if (! self::allows($request->ip(), $allowedIps)) {
             return response()->json([
                 'message' => 'Access denied. Your IP address is not whitelisted.',
             ], 403);
         }
 
         return $next($request);
+    }
+
+    /**
+     * Whether the IP matches one of the addresses or CIDR ranges. An empty
+     * list allows every IP; a missing IP is never allowed by a non-empty list.
+     *
+     * @param  array<int, string>  $allowedIps
+     */
+    public static function allows(?string $ip, array $allowedIps): bool
+    {
+        $allowedIps = array_values(array_filter(array_map('trim', $allowedIps), fn (string $value) => $value !== ''));
+
+        if ($allowedIps === []) {
+            return true;
+        }
+
+        return $ip !== null && $ip !== '' && IpUtils::checkIp($ip, $allowedIps);
     }
 }

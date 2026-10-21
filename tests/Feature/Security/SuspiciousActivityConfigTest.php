@@ -43,12 +43,10 @@ it('blocks an ip for the configured time after the configured number of violatio
 });
 
 it('keeps the previous defaults', function (): void {
-    expect(require base_path('config/security.php'))->toBe([
-        'suspicious_activity' => [
-            'max_requests_per_minute' => 100,
-            'max_violations' => 5,
-            'violation_window_minutes' => 60,
-            'block_minutes' => 1440,
-        ],
+    expect((require base_path('config/security.php'))['suspicious_activity'])->toBe([
+        'max_requests_per_minute' => 100,
+        'max_violations' => 5,
+        'violation_window_minutes' => 60,
+        'block_minutes' => 1440,
     ]);
 });

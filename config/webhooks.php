@@ -7,10 +7,9 @@ return [
     | Private Network Targets
     |--------------------------------------------------------------------------
     |
-    | Outgoing webhooks are refused when their URL points to a private,
-    | loopback, link-local or otherwise reserved address (SSRF protection).
-    | Enable this only for local development (e.g. to reach a tunnel on
-    | localhost).
+    | Deprecated: use `security.allow_private_urls` (SECURITY_ALLOW_PRIVATE_URLS),
+    | which covers every request to a user-supplied URL. Enabling this one
+    | still allows private targets.
     |
     */
 
@@ -35,8 +34,9 @@ return [
     | Events
     |--------------------------------------------------------------------------
     |
-    | Events emitted by the application. Endpoints may subscribe to any of
-    | them, or to "*" for every event.
+    | Events emitted by the application, listed by GET /api/v1/webhooks/events.
+    | Endpoints may subscribe to any of them, or to "*" for every event.
+    | Modules add their own events to this list from their service provider.
     |
     */
 

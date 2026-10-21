@@ -70,4 +70,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `AuditLogger::log()` and `action()` accept an `organizationId`, to audit events outside a tenant request (queued jobs, scheduled commands). They could only use the current tenant.
 - `CacheService::forget()` removes a value stored with `remember()`. Only the fixed `clear*()` methods existed.
 - The thresholds of `security.check` are configurable (`config/security.php`), and a route can allow more requests per minute (`security.check:600`) or disable the rate check (`security.check:0`). The defaults keep the previous values, except that the request rate now trips above 100 requests per minute as documented, instead of above 101.
+- `ResourceLimits::registerDefault()` sets the limit of a resource whose plan does not define one. Such resources were unlimited.
+- `PlanSeeder::extend()` adds limits and features to the seeded plans, and `DatabaseSeeder` runs the seeders tagged `DatabaseSeeder::MODULE_SEEDERS`, so modules no longer edit the core seeders.
+- `GET /api/v1/webhooks/events` lists the events webhooks can subscribe to (`config('webhooks.events')`).
+- `TenantContext::runAs()` and `runWithoutTenant()` run code for another tenant, or none, and restore the previous one.
+- The SSRF guard moved to `Infrastructure\Security` (`UrlGuard`, `SafeUrl` rule) so any feature requesting user-supplied URLs can use it, with a neutral setting: `SECURITY_ALLOW_PRIVATE_URLS`. `WebhookUrlGuard`, `SafeWebhookUrl` and `WEBHOOKS_ALLOW_PRIVATE_URLS` still work and are deprecated.
+- `IpWhitelist::allows()` and the `IpOrCidr` rule match and validate IP allow-lists stored with application data. `ip.whitelist` only takes lists written in the route.
 - `OrganizationSubscriptionChanged` is raised after a subscription is created, updated or canceled, with the plan now in effect, so modules can reconcile their resources after a downgrade.

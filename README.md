@@ -86,7 +86,7 @@ app/Models                         Core Eloquent models (users, organizations, r
 src/Infrastructure                 Cross-cutting concerns
 ├── Tenant                         TenantContext, tenant middleware, BelongsToOrganization scope
 ├── RateLimiting                   Plan-aware rate limiter
-├── Security                       Security headers, IP allow-list, suspicious-activity checks
+├── Security                       Security headers, IP allow-list, suspicious-activity checks, SSRF guard
 └── Http, Support                  API error/pagination helpers, route loading
 src/Features/<Module>/<Feature>    Vertical slices
 ├── Application                    Command (DTO), Handler, Controller, FormRequest
@@ -152,6 +152,8 @@ curl http://localhost/api/v1/invitations \
 
 The tenant context is only set when the authenticated user belongs to that organization. Requests without a valid context get `403`.
 
+Models using `BelongsToOrganizationTrait` are scoped to the current tenant and assigned to it when created. To act for another organization (in a job, a listener) or to create a system record (`organization_id = NULL`), wrap the code in `TenantContext::runAs($organization, fn () => ...)` or `TenantContext::runWithoutTenant(fn () => ...)`; the previous tenant is restored afterwards.
+
 Middleware available to routes:
 
 | Alias | Purpose |
@@ -165,7 +167,7 @@ Middleware available to routes:
 | `plan.feature:<feature>` | Requires a feature of the organization's plan (`402` otherwise), for example `plan.feature:webhooks`. |
 | `limit:<resource>` | Enforces a plan limit, for example `limit:users`. See [Plan limits for your own resources](#plan-limits-for-your-own-resources). |
 | `rate.limit` | Plan-based rate limiting. |
-| `ip.whitelist:1.2.3.4,10.0.0.0/8` | Allows only the listed IPs or CIDR ranges. |
+| `ip.whitelist:1.2.3.4,10.0.0.0/8` | Allows only the listed IPs or CIDR ranges. For lists stored with your data, call `IpWhitelist::allows($ip, $ranges)` and validate them with the `IpOrCidr` rule. |
 | `security.check` | Optional heuristic blocking of suspicious payloads and request rates (thresholds in `config/security.php`). `security.check:600` allows a route 600 requests per minute; `0` disables the rate check. |
 
 ### Roles
@@ -230,11 +232,26 @@ UsageTracker::registerCounter('projects', fn (Organization $organization) => $or
 
 The counter also feeds `GET /api/v1/usage`. Resources without a counter count as 0, so their limit never blocks.
 
+A plan without a limit for a resource makes it unlimited. Register the limit to use in that case (and for organizations without a subscription):
+
+```php
+ResourceLimits::registerDefault('projects', 3);
+```
+
+Add your resources to the seeded plans from the same `boot()` method, and tag your module's own seeders so `php artisan db:seed` runs them after the core ones:
+
+```php
+PlanSeeder::extend('free', limits: ['projects' => 3]);
+PlanSeeder::extend('pro-monthly', limits: ['projects' => 50], features: ['project-export']);
+
+$this->app->tag([ProjectsSeeder::class], DatabaseSeeder::MODULE_SEEDERS);
+```
+
 Limits only guard new resources. When a plan changes (a downgrade, a canceled subscription), `OrganizationSubscriptionChanged` is raised with the organization and the plan now in effect (`null` without an active subscription); listen to it to bring existing resources in line, e.g. by pausing the ones above the new limit. It can be raised without a plan change, so keep the listener idempotent.
 
 ## Outgoing Webhooks
 
-Admins register endpoints with `POST /api/v1/webhooks` and subscribe them to events. Subscriptions accept exact event names, wildcards such as `member.*`, or `*` for everything.
+Admins register endpoints with `POST /api/v1/webhooks` and subscribe them to events. Subscriptions accept exact event names, wildcards such as `member.*`, or `*` for everything. `GET /api/v1/webhooks/events` lists the available events.
 
 | Group | Events |
 |-------|--------|
@@ -243,6 +260,12 @@ Admins register endpoints with `POST /api/v1/webhooks` and subscribe them to eve
 | Invitations | `invitation.sent`, `invitation.accepted`, `invitation.rejected`, `invitation.canceled` |
 | Subscriptions | `subscription.created`, `subscription.updated`, `subscription.canceled` |
 | Payments | `payment.succeeded`, `payment.failed` |
+
+Dispatch your own events with `WebhookDispatcher::dispatch()` and add their names to `webhooks.events` from your service provider, so the list shows them:
+
+```php
+config(['webhooks.events' => [...config('webhooks.events'), 'project.created']]);
+```
 
 Each delivery is a JSON `POST` with the following headers:
 - `X-Webhook-Event`: the event name.
@@ -262,7 +285,7 @@ Delivery rules:
 - Only `2xx` responses count as delivered.
 - Failed deliveries are retried with backoff, up to `retry_limit` attempts.
 - Every attempt is listed under `GET /api/v1/webhooks/{id}/deliveries`.
-- URLs that resolve to private or reserved networks are rejected (SSRF protection).
+- URLs that resolve to private or reserved networks are rejected (SSRF protection). Protect your own requests to user-supplied URLs the same way with the `SafeUrl` validation rule and `UrlGuard::isAllowed()` (`Infrastructure\Security`).
 
 ## GDPR
 
@@ -295,7 +318,7 @@ Each contributor adds one section, named by its `section()` method. Names alread
 | `JWT_SECRET`, `JWT_TTL` | Signing key (defaults to `APP_KEY`) and lifetime in minutes of the 2FA challenge tokens. |
 | `ORGANIZATION_SETTINGS_DEFAULT_*` | Default timezone, locale and currency of new organizations. |
 | `INVITATION_EXPIRE_DAYS` | Invitation validity in days. |
-| `WEBHOOKS_ALLOW_PRIVATE_URLS` | Allows webhooks to private addresses. For local development only. |
+| `SECURITY_ALLOW_PRIVATE_URLS` | Allows requests to private addresses (webhooks, `UrlGuard`). For local development only. `WEBHOOKS_ALLOW_PRIVATE_URLS` is its former name and still works. |
 | `AUDIT_ENABLED` | Turns request auditing on or off. |
 | `GDPR_DELETION_GRACE_DAYS` | Days between a deletion request and the permanent deletion. |
 | `SECURITY_MAX_REQUESTS_PER_MINUTE`, `SECURITY_MAX_VIOLATIONS`, `SECURITY_VIOLATION_WINDOW_MINUTES`, `SECURITY_BLOCK_MINUTES` | Thresholds of the `security.check` middleware (defaults: 100 requests per minute, IP blocked for 1440 minutes after 5 violations within 60 minutes). |
