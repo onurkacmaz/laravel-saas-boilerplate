@@ -9,6 +9,36 @@ use Illuminate\Database\Seeder;
 class PlanSeeder extends Seeder
 {
     /**
+     * Limits and features that modules add to the catalogue, by plan slug.
+     *
+     * @var array<string, array{limits: array<string, mixed>, features: list<string>}>
+     */
+    private static array $extensions = [];
+
+    /**
+     * Add limits and features to a plan of the catalogue, e.g. for a module's
+     * own resources. Call it from a service provider's boot method; the
+     * seeder merges them into the plan.
+     *
+     * @param  array<string, mixed>  $limits
+     * @param  list<string>  $features
+     */
+    public static function extend(string $slug, array $limits = [], array $features = []): void
+    {
+        $extension = self::$extensions[$slug] ?? ['limits' => [], 'features' => []];
+
+        self::$extensions[$slug] = [
+            'limits' => [...$extension['limits'], ...$limits],
+            'features' => array_values(array_unique([...$extension['features'], ...$features])),
+        ];
+    }
+
+    public static function forgetExtensions(): void
+    {
+        self::$extensions = [];
+    }
+
+    /**
      * Seed a sensible default plan catalogue. Stripe identifiers are read from
      * the environment so the paid plans can be wired to real Stripe prices.
      */
@@ -54,6 +84,10 @@ class PlanSeeder extends Seeder
         ];
 
         foreach ($plans as $plan) {
+            $extension = self::$extensions[$plan['slug']] ?? ['limits' => [], 'features' => []];
+            $plan['limits'] = [...$plan['limits'], ...$extension['limits']];
+            $plan['features'] = array_values(array_unique([...$plan['features'], ...$extension['features']]));
+
             Plan::query()->updateOrCreate(
                 ['slug' => $plan['slug']],
                 [...$plan, 'currency' => strtoupper((string) config('cashier.currency', 'usd')), 'is_active' => true],

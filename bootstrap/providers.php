@@ -50,6 +50,7 @@ use Features\Webhooks\CreateWebhook\Providers\CreateWebhookServiceProvider;
 use Features\Webhooks\DeleteWebhook\Providers\DeleteWebhookServiceProvider;
 use Features\Webhooks\GetWebhook\Providers\GetWebhookServiceProvider;
 use Features\Webhooks\GetWebhookDeliveries\Providers\GetWebhookDeliveriesServiceProvider;
+use Features\Webhooks\GetWebhookEvents\Providers\GetWebhookEventsServiceProvider;
 use Features\Webhooks\GetWebhooks\Providers\GetWebhooksServiceProvider;
 use Features\Webhooks\UpdateWebhook\Providers\UpdateWebhookServiceProvider;
 use Features\Webhooks\WebhookServiceProvider;
@@ -70,6 +71,7 @@ return [
     GetWebhookServiceProvider::class,
     GetWebhooksServiceProvider::class,
     GetWebhookDeliveriesServiceProvider::class,
+    GetWebhookEventsServiceProvider::class,
     GetOrganizationsServiceProvider::class,
     CreateOrganizationServiceProvider::class,
     GetOrganizationServiceProvider::class,
