@@ -160,8 +160,9 @@ Middleware available to routes:
 | `tenant.required` | Requires a tenant. Also rejects URLs whose `{organization}` differs from the header. |
 | `tenant.role:admin` | Requires the admin or owner role in the current organization. |
 | `tenant.role:owner` | Requires the organization owner. |
+| `tenant.permission:<slug>` | Requires a permission in the current organization, for example `tenant.permission:projects.manage`. |
 | `subscription.required` | Requires an active subscription (`402` otherwise). |
-| `limit:<resource>` | Enforces a plan limit, for example `limit:users`. |
+| `limit:<resource>` | Enforces a plan limit, for example `limit:users`. See [Plan limits for your own resources](#plan-limits-for-your-own-resources). |
 | `rate.limit` | Plan-based rate limiting. |
 | `ip.whitelist:1.2.3.4,10.0.0.0/8` | Allows only the listed IPs or CIDR ranges. |
 | `security.check` | Optional heuristic blocking of suspicious payloads. |
@@ -180,6 +181,14 @@ Organizations can also create their own roles and permissions:
 - An admin cannot remove or demote another admin.
 - Nobody can remove the owner or change the owner's role.
 - A role that is still assigned to members or pending invitations cannot be deleted.
+
+### Permissions
+
+Permissions are attached to roles (`POST /api/v1/roles/{role}/permissions`) and enforced with the `tenant.permission:<slug>` middleware, or in code with `$organization->userHasPermission($user, $slug)`:
+- Owners and admins hold every permission.
+- Other members hold the permissions of their membership role (`PUT /organizations/{organization}/users/{user}/role` or the invitation's role).
+- They also hold the permissions of this organization's roles assigned to them with `POST /api/v1/users/{user}/roles`.
+- System permissions (created by a seeder, shared by every organization) and the organization's own permissions both count. Deleted roles and permissions grant nothing, and neither do roles of other organizations.
 
 ## Authentication
 
@@ -209,6 +218,16 @@ E-mail links (invitations, password reset, e-mail verification, billing) point t
    - Paid plans return a Stripe Checkout URL.
    - Free plans are activated immediately.
    - New organizations are subscribed to the free plan automatically when one exists.
+
+### Plan limits for your own resources
+
+`limit:<resource>` compares the plan's `limits.<resource>` with the organization's current count. The boilerplate counts `users` (members) and `api_calls` (usage of the current month); register a counter for every other resource you limit, from a service provider's `boot()` method:
+
+```php
+UsageTracker::registerCounter('projects', fn (Organization $organization) => $organization->projects()->count());
+```
+
+The counter also feeds `GET /api/v1/usage`. Resources without a counter count as 0, so their limit never blocks.
 
 ## Outgoing Webhooks
 

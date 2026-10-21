@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Infrastructure\Security\Middleware\CheckSuspiciousActivity;
 use Infrastructure\Security\Middleware\IpWhitelist;
 use Infrastructure\Security\Middleware\SecurityHeaders;
+use Infrastructure\Tenant\Middleware\RequireOrganizationPermission;
 use Infrastructure\Tenant\Middleware\RequireOrganizationRole;
 use Infrastructure\Tenant\Middleware\RequireTenant;
 use Infrastructure\Tenant\Middleware\SetTenantContext;
@@ -34,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.context' => SetTenantContext::class,
             'tenant.required' => RequireTenant::class,
             'tenant.role' => RequireOrganizationRole::class,
+            'tenant.permission' => RequireOrganizationPermission::class,
             'subscription.required' => RequireActiveSubscription::class,
             'limit' => CheckResourceLimit::class,
             'rate.limit' => PlanBasedRateLimitMiddleware::class,
