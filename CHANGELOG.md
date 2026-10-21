@@ -61,5 +61,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - GDPR erasure,
   - webhook delivery.
 - Coverage now measures `app/` too and excludes test files. CI enforces a minimum of 90%; local line coverage is 98.5%.
+- Permissions are now enforced: `tenant.permission:<slug>` middleware and `Organization::userHasPermission()`. Until now, permissions attached to roles had no effect.
+- `UsageTracker::registerCounter()` lets applications count their own plan-limited resources. Until now, `limit:<resource>` never blocked anything but `users` and `api_calls`, and the usage summary reported 0 for other resources.
+- Applications can add their own sections to the GDPR export (`ExportsUserData` contributors tagged `UserDataExporter::CONTRIBUTORS`).
+- GDPR erasure now raises `OrganizationDeleted` for the organizations it deletes, like `DELETE /organizations/{id}`. Listeners never saw those deletions before.
+- `plan.feature:<feature>` middleware, which requires a feature of the organization's plan.
+- The organization feature flags are listed in `config/settings.php`, so applications can add their own. They were hard-coded to `advanced_analytics`, `api_access` and `custom_branding`.
 - `AuditLogger::log()` and `action()` accept an `organizationId`, to audit events outside a tenant request (queued jobs, scheduled commands). They could only use the current tenant.
 - `CacheService::forget()` removes a value stored with `remember()`. Only the fixed `clear*()` methods existed.

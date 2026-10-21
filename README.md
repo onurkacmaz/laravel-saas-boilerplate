@@ -15,6 +15,7 @@
 - [Authentication](#authentication)
 - [Billing](#billing)
 - [Outgoing Webhooks](#outgoing-webhooks)
+- [GDPR](#gdpr)
 - [Environment & Configuration](#environment--configuration)
 - [Background Jobs & Scheduling](#background-jobs--scheduling)
 - [Testing](#testing)
@@ -43,7 +44,7 @@ The project is maintained as a reference implementation: fork it, adapt it to yo
 - Organization-wide actions require an admin or owner role. Deleting an organization requires the owner.
 - Every `{organization}` URL is checked against the tenant header, so a member of one organization cannot act on another.
 - Invitation lifecycle (send, accept, reject, cancel, expire) with e-mail notifications. E-mails are compared case-insensitively.
-- Per-organization settings: locale, timezone, currency, notification preferences and feature flags.
+- Per-organization settings: locale, timezone, currency, notification preferences and feature flags. The allowed flags are listed in `config/settings.php`.
 - Custom roles and permissions per organization, on top of read-only system roles.
 
 **Authentication**
@@ -159,8 +160,10 @@ Middleware available to routes:
 | `tenant.required` | Requires a tenant. Also rejects URLs whose `{organization}` differs from the header. |
 | `tenant.role:admin` | Requires the admin or owner role in the current organization. |
 | `tenant.role:owner` | Requires the organization owner. |
+| `tenant.permission:<slug>` | Requires a permission in the current organization, for example `tenant.permission:projects.manage`. |
 | `subscription.required` | Requires an active subscription (`402` otherwise). |
-| `limit:<resource>` | Enforces a plan limit, for example `limit:users`. |
+| `plan.feature:<feature>` | Requires a feature of the organization's plan (`402` otherwise), for example `plan.feature:webhooks`. |
+| `limit:<resource>` | Enforces a plan limit, for example `limit:users`. See [Plan limits for your own resources](#plan-limits-for-your-own-resources). |
 | `rate.limit` | Plan-based rate limiting. |
 | `ip.whitelist:1.2.3.4,10.0.0.0/8` | Allows only the listed IPs or CIDR ranges. |
 | `security.check` | Optional heuristic blocking of suspicious payloads. |
@@ -179,6 +182,14 @@ Organizations can also create their own roles and permissions:
 - An admin cannot remove or demote another admin.
 - Nobody can remove the owner or change the owner's role.
 - A role that is still assigned to members or pending invitations cannot be deleted.
+
+### Permissions
+
+Permissions are attached to roles (`POST /api/v1/roles/{role}/permissions`) and enforced with the `tenant.permission:<slug>` middleware, or in code with `$organization->userHasPermission($user, $slug)`:
+- Owners and admins hold every permission.
+- Other members hold the permissions of their membership role (`PUT /organizations/{organization}/users/{user}/role` or the invitation's role).
+- They also hold the permissions of this organization's roles assigned to them with `POST /api/v1/users/{user}/roles`.
+- System permissions (created by a seeder, shared by every organization) and the organization's own permissions both count. Deleted roles and permissions grant nothing, and neither do roles of other organizations.
 
 ## Authentication
 
@@ -208,6 +219,16 @@ E-mail links (invitations, password reset, e-mail verification, billing) point t
    - Paid plans return a Stripe Checkout URL.
    - Free plans are activated immediately.
    - New organizations are subscribed to the free plan automatically when one exists.
+
+### Plan limits for your own resources
+
+`limit:<resource>` compares the plan's `limits.<resource>` with the organization's current count. The boilerplate counts `users` (members) and `api_calls` (usage of the current month); register a counter for every other resource you limit, from a service provider's `boot()` method:
+
+```php
+UsageTracker::registerCounter('projects', fn (Organization $organization) => $organization->projects()->count());
+```
+
+The counter also feeds `GET /api/v1/usage`. Resources without a counter count as 0, so their limit never blocks.
 
 ## Outgoing Webhooks
 
@@ -240,6 +261,24 @@ Delivery rules:
 - Failed deliveries are retried with backoff, up to `retry_limit` attempts.
 - Every attempt is listed under `GET /api/v1/webhooks/{id}/deliveries`.
 - URLs that resolve to private or reserved networks are rejected (SSRF protection).
+
+## GDPR
+
+| Action | Endpoint |
+|--------|----------|
+| Export | `GET /api/v1/gdpr/export` (JSON) or `GET /api/v1/gdpr/download` (file) |
+| Request deletion | `POST /api/v1/gdpr/request-deletion`, cancel with `POST /api/v1/gdpr/cancel-deletion` |
+| Erase now | `DELETE /api/v1/gdpr/delete` with the current `password` |
+
+Erasure hands owned organizations over to another admin, or deletes them. Deleted organizations raise the same `OrganizationDeleted` event as `DELETE /organizations/{id}`, so cleanup listeners run in both cases.
+
+Add your application's data to the export by implementing `Features\Compliance\Shared\Contracts\ExportsUserData` and tagging it in a service provider:
+
+```php
+$this->app->tag([ProjectsExporter::class], UserDataExporter::CONTRIBUTORS);
+```
+
+Each contributor adds one section, named by its `section()` method. Names already used by the export are refused.
 
 ## Environment & Configuration
 
