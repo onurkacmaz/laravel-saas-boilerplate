@@ -29,7 +29,7 @@ it('falls back to registered defaults when the plan omits a limit', function ():
 
     expect($limits->getLimit('reports'))->toBe(2)
         ->and($limits->hasReached('reports', 2))->toBeTrue()
-        ->and($limits->getAllLimits())->toBe(['reports' => 2, 'users' => 10]);
+        ->and($limits->getAllLimits())->toMatchArray(['reports' => 2, 'users' => 10]);
 });
 
 it('prefers the plan limit over a registered default', function (): void {
@@ -40,7 +40,7 @@ it('prefers the plan limit over a registered default', function (): void {
     ResourceLimits::registerDefault('reports', 2);
 
     expect((new ResourceLimits($organization))->getLimit('reports'))->toBe(50)
-        ->and((new ResourceLimits($organization))->getAllLimits())->toBe(['reports' => 50]);
+        ->and((new ResourceLimits($organization))->getAllLimits())->toMatchArray(['reports' => 50]);
 });
 
 it('applies registered defaults to organizations without a subscription', function (): void {

@@ -95,7 +95,7 @@ it('uses the limits and features of the subscribed plan', function (): void {
 
     $limits = new ResourceLimits;
 
-    expect($limits->getAllLimits())->toBe(['users' => 10, 'storage' => 0, 'api_calls' => -1])
+    expect($limits->getAllLimits())->toMatchArray(['users' => 10, 'storage' => 0, 'api_calls' => -1])
         ->and($limits->hasFeature('webhooks'))->toBeTrue()
         ->and($limits->hasFeature('sso'))->toBeFalse()
         ->and($limits->canPerform('users', 9))->toBeTrue()

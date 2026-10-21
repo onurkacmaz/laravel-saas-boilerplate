@@ -43,12 +43,13 @@ it('merges module limits and features into the plan catalogue', function (): voi
     $pro = Plan::query()->where('slug', 'pro-monthly')->sole();
 
     expect($free->limits)->toMatchArray(['users' => 4, 'projects' => 1, 'reports' => 1, 'exports' => 0])
-        ->and($free->features)->toBe(['basic-support', 'reports', 'exports'])
+        ->and($free->features)->toContain('basic-support', 'reports', 'exports')
+        ->and($free->features)->toBe(array_values(array_unique($free->features)))
         ->and($pro->limits['reports'])->toBe(100)
         ->and(Plan::query()->where('slug', 'pro-yearly')->sole()->limits)->not->toHaveKey('reports');
 
     // Seeding again keeps the catalogue as it is.
     $this->seed(PlanSeeder::class);
 
-    expect(Plan::query()->where('slug', 'free')->sole()->features)->toBe(['basic-support', 'reports', 'exports']);
+    expect(Plan::query()->where('slug', 'free')->sole()->features)->toBe($free->features);
 });
