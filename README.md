@@ -163,7 +163,7 @@ Middleware available to routes:
 | `limit:<resource>` | Enforces a plan limit, for example `limit:users`. |
 | `rate.limit` | Plan-based rate limiting. |
 | `ip.whitelist:1.2.3.4,10.0.0.0/8` | Allows only the listed IPs or CIDR ranges. |
-| `security.check` | Optional heuristic blocking of suspicious payloads. |
+| `security.check` | Optional heuristic blocking of suspicious payloads and request rates (thresholds in `config/security.php`). `security.check:600` allows a route 600 requests per minute; `0` disables the rate check. |
 
 ### Roles
 
@@ -257,6 +257,7 @@ Delivery rules:
 | `WEBHOOKS_ALLOW_PRIVATE_URLS` | Allows webhooks to private addresses. For local development only. |
 | `AUDIT_ENABLED` | Turns request auditing on or off. |
 | `GDPR_DELETION_GRACE_DAYS` | Days between a deletion request and the permanent deletion. |
+| `SECURITY_MAX_REQUESTS_PER_MINUTE`, `SECURITY_MAX_VIOLATIONS`, `SECURITY_VIOLATION_WINDOW_MINUTES`, `SECURITY_BLOCK_MINUTES` | Thresholds of the `security.check` middleware (defaults: 100 requests per minute, IP blocked for 1440 minutes after 5 violations within 60 minutes). |
 
 ## Background Jobs & Scheduling
 
