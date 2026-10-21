@@ -24,6 +24,7 @@ use Features\Auth\Logout\Providers\LogoutServiceProvider;
 use Features\Auth\PasswordReset\Providers\PasswordResetServiceProvider;
 use Features\Auth\Register\Providers\RegisterServiceProvider;
 use Features\Auth\TwoFactorAuth\Providers\TwoFactorAuthServiceProvider;
+use Features\Auth\UpdateProfile\Providers\UpdateProfileServiceProvider;
 use Features\Compliance\GdprCancelDeletion\Providers\GdprCancelDeletionServiceProvider;
 use Features\Compliance\GdprDelete\Providers\GdprDeleteServiceProvider;
 use Features\Compliance\GdprDownload\Providers\GdprDownloadServiceProvider;
@@ -65,6 +66,7 @@ return [
     PasswordResetServiceProvider::class,
     EmailVerificationServiceProvider::class,
     ChangePasswordServiceProvider::class,
+    UpdateProfileServiceProvider::class,
     CreateWebhookServiceProvider::class,
     UpdateWebhookServiceProvider::class,
     DeleteWebhookServiceProvider::class,
