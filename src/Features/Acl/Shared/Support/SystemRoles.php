@@ -70,18 +70,11 @@ final class SystemRoles
 
         // System roles have no organization; the tenant context would otherwise
         // stamp the current organization on the new record.
-        $organization = TenantContext::getOrganization();
-        TenantContext::setOrganization(null);
-
-        try {
-            return Role::query()->create([
-                'organization_id' => null,
-                'slug' => $slug,
-                ...$definition,
-            ]);
-        } finally {
-            TenantContext::setOrganization($organization);
-        }
+        return TenantContext::runWithoutTenant(fn () => Role::query()->create([
+            'organization_id' => null,
+            'slug' => $slug,
+            ...$definition,
+        ]));
     }
 
     public static function ensureAll(): void

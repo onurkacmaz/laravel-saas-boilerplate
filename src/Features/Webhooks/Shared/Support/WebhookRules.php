@@ -2,7 +2,7 @@
 
 namespace Features\Webhooks\Shared\Support;
 
-use Features\Webhooks\Shared\Rules\SafeWebhookUrl;
+use Infrastructure\Security\Rules\SafeUrl;
 
 final class WebhookRules
 {
@@ -17,7 +17,7 @@ final class WebhookRules
 
         return [
             'name' => [$required, 'string', 'max:255'],
-            'url' => [$required, 'string', 'url:http,https', 'max:500', new SafeWebhookUrl],
+            'url' => [$required, 'string', 'url:http,https', 'max:500', new SafeUrl],
             'events' => [$required, 'array', 'min:1', 'max:100'],
             'events.*' => ['required', 'string', 'distinct', 'max:100', 'regex:/^(\*|[a-z0-9_]+(\.[a-z0-9_*]+)*)$/'],
             'secret' => ['sometimes', 'nullable', 'string', 'min:16', 'max:255'],
