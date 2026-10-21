@@ -4,9 +4,9 @@ namespace Features\Webhooks\DeliverWebhook\Application;
 
 use Features\Webhooks\Infrastructure\Eloquent\Models\WebhookDelivery;
 use Features\Webhooks\Shared\Support\WebhookRules;
-use Features\Webhooks\Shared\Support\WebhookUrlGuard;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Infrastructure\Security\Support\UrlGuard;
 use Throwable;
 
 class DeliverWebhookHandler
@@ -33,7 +33,7 @@ class DeliverWebhookHandler
 
         // Re-checked at delivery time: DNS records may have changed since the
         // URL was validated (DNS rebinding).
-        if (! WebhookUrlGuard::isAllowed($webhook->url)) {
+        if (! UrlGuard::isAllowed($webhook->url)) {
             $delivery->markAsFailed(null, 'Delivery blocked: the endpoint resolves to a private or reserved address.');
 
             return $delivery->fresh();

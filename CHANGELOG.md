@@ -70,3 +70,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `AuditLogger::log()` and `action()` accept an `organizationId`, to audit events outside a tenant request (queued jobs, scheduled commands). They could only use the current tenant.
 - `CacheService::forget()` removes a value stored with `remember()`. Only the fixed `clear*()` methods existed.
 - The thresholds of `security.check` are configurable (`config/security.php`), and a route can allow more requests per minute (`security.check:600`) or disable the rate check (`security.check:0`). The defaults keep the previous values, except that the request rate now trips above 100 requests per minute as documented, instead of above 101.
+- The SSRF guard moved to `Infrastructure\Security` (`UrlGuard`, `SafeUrl` rule) so any feature requesting user-supplied URLs can use it, with a neutral setting: `SECURITY_ALLOW_PRIVATE_URLS`. `WebhookUrlGuard`, `SafeWebhookUrl` and `WEBHOOKS_ALLOW_PRIVATE_URLS` still work and are deprecated.
+- `IpWhitelist::allows()` and the `IpOrCidr` rule match and validate IP allow-lists stored with application data. `ip.whitelist` only takes lists written in the route.
