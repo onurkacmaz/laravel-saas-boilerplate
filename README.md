@@ -250,6 +250,7 @@ Permissions are attached to roles (`POST /api/v1/roles/{role}/permissions`) and 
 | Password reset | `POST /api/v1/auth/forgot-password`, then `POST /api/v1/auth/reset-password` |
 | Verify e-mail | Signed link from the e-mail; resend with `POST /api/v1/auth/email/verification-notification` |
 | Change password | `PUT /api/v1/auth/password` |
+| Update profile | `PUT /api/v1/auth/profile` with `name` and/or `email`. A new e-mail needs `current_password`, must be verified again, and the old address is notified. |
 
 To enable 2FA:
 1. Call `POST /2fa/enable` and scan the returned `otpauth://` URI.
