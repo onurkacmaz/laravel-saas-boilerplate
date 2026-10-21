@@ -366,6 +366,7 @@ Each contributor adds one section, named by its `section()` method. Names alread
 | `ORGANIZATION_SETTINGS_DEFAULT_*` | Default timezone, locale and currency of new organizations. |
 | `INVITATION_EXPIRE_DAYS` | Invitation validity in days. |
 | `SECURITY_ALLOW_PRIVATE_URLS` | Allows requests to private addresses (webhooks, `UrlGuard`). For local development only. `WEBHOOKS_ALLOW_PRIVATE_URLS` is its former name and still works. |
+| `TRUSTED_PROXIES` | Proxies allowed to set `X-Forwarded-For`: a comma-separated list of IPs or CIDR ranges, or `*`. Set it when a load balancer, CDN or frontend server forwards requests, so rate limits, IP allow-lists and audit logs see the client's address. Empty by default: forwarded headers are ignored. |
 | `AUDIT_ENABLED` | Turns request auditing on or off. |
 | `GDPR_DELETION_GRACE_DAYS` | Days between a deletion request and the permanent deletion. |
 | `SECURITY_MAX_REQUESTS_PER_MINUTE`, `SECURITY_MAX_VIOLATIONS`, `SECURITY_VIOLATION_WINDOW_MINUTES`, `SECURITY_BLOCK_MINUTES` | Thresholds of the `security.check` middleware (defaults: 100 requests per minute, IP blocked for 1440 minutes after 5 violations within 60 minutes). |
