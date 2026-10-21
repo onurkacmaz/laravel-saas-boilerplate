@@ -61,3 +61,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - GDPR erasure,
   - webhook delivery.
 - Coverage now measures `app/` too and excludes test files. CI enforces a minimum of 90%; local line coverage is 98.5%.
+- Permissions are now enforced: `tenant.permission:<slug>` middleware and `Organization::userHasPermission()`. Until now, permissions attached to roles had no effect.
