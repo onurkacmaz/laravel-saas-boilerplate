@@ -80,3 +80,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - The README explains how to add a module and lists the core's extension points; CONTRIBUTING notes that Scramble resolves form request rules without a tenant.
 - `OrganizationSetting::factory()` creates the production default settings instead of random preferences and flags (random ones with `randomized()`), and `userInOrganization()` uses the system roles for "owner", "admin" and "member" like production. Tests depending on random settings were flaky.
 - Core tests no longer assume that no module registers limits or plan extensions; they failed in applications that do.
+- `TRUSTED_PROXIES` (`config/trustedproxy.php`) lists the proxies whose `X-Forwarded-*` headers are honoured. Behind a load balancer, CDN or forwarding frontend, rate limits, IP allow-lists, `security.check` and audit logs saw the proxy's address instead of the client's.
