@@ -18,6 +18,10 @@ readonly class AuditLogger
 
     /**
      * Log an audit event.
+     *
+     * The organization defaults to the current tenant. Pass $organizationId
+     * to log outside a tenant request (queued jobs, scheduled commands,
+     * public endpoints).
      */
     public function log(
         string $event,
@@ -25,13 +29,14 @@ readonly class AuditLogger
         array $oldValues = [],
         array $newValues = [],
         ?array $metadata = null,
-        ?Request $request = null
+        ?Request $request = null,
+        ?string $organizationId = null
     ): AuditLog {
         $request = $request ?? request();
 
         // The tenant context is cleared once the tenant middleware finished, so
         // fall back to the organization it recorded on the request.
-        $organizationId = $this->tenantContext->getOrganizationId()
+        $organizationId ??= $this->tenantContext->getOrganizationId()
             ?? $request->attributes->get(SetTenantContext::REQUEST_ATTRIBUTE);
 
         return AuditLog::query()->create([
@@ -91,12 +96,13 @@ readonly class AuditLogger
     /**
      * Log a custom action event.
      */
-    public function action(string $action, ?Model $model = null, ?array $metadata = null): AuditLog
+    public function action(string $action, ?Model $model = null, ?array $metadata = null, ?string $organizationId = null): AuditLog
     {
         return $this->log(
             event: $action,
             auditable: $model,
-            metadata: $metadata
+            metadata: $metadata,
+            organizationId: $organizationId
         );
     }
 

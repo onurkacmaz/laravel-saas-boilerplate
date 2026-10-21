@@ -67,3 +67,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - GDPR erasure now raises `OrganizationDeleted` for the organizations it deletes, like `DELETE /organizations/{id}`. Listeners never saw those deletions before.
 - `plan.feature:<feature>` middleware, which requires a feature of the organization's plan.
 - The organization feature flags are listed in `config/settings.php`, so applications can add their own. They were hard-coded to `advanced_analytics`, `api_access` and `custom_branding`.
+- `AuditLogger::log()` and `action()` accept an `organizationId`, to audit events outside a tenant request (queued jobs, scheduled commands). They could only use the current tenant.
+- `CacheService::forget()` removes a value stored with `remember()`. Only the fixed `clear*()` methods existed.

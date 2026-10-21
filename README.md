@@ -66,7 +66,7 @@ The project is maintained as a reference implementation: fork it, adapt it to yo
 
 **Security & compliance**
 - Signed outgoing webhooks with SSRF protection, delivery logs and automatic retries.
-- Audit trail of every successful state-changing request, with sensitive fields redacted.
+- Audit trail of every successful state-changing request, with sensitive fields redacted. Background events can be logged for a given organization with `AuditLogger::action(..., organizationId: $id)`.
 - GDPR tooling:
   - data export and download,
   - scheduled deletion with a grace period,
