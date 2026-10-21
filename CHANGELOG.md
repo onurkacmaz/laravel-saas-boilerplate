@@ -70,3 +70,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `AuditLogger::log()` and `action()` accept an `organizationId`, to audit events outside a tenant request (queued jobs, scheduled commands). They could only use the current tenant.
 - `CacheService::forget()` removes a value stored with `remember()`. Only the fixed `clear*()` methods existed.
 - The thresholds of `security.check` are configurable (`config/security.php`), and a route can allow more requests per minute (`security.check:600`) or disable the rate check (`security.check:0`). The defaults keep the previous values, except that the request rate now trips above 100 requests per minute as documented, instead of above 101.
+- `OrganizationSubscriptionChanged` is raised after a subscription is created, updated or canceled, with the plan now in effect, so modules can reconcile their resources after a downgrade.
