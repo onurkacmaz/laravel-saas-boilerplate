@@ -7,10 +7,33 @@ use Infrastructure\Tenant\TenantContext;
 
 class ResourceLimits
 {
+    /**
+     * Limits registered by modules, used when a plan does not define them.
+     *
+     * @var array<string, mixed>
+     */
+    private static array $registeredDefaults = [];
+
     public function __construct(
         private ?Organization $organization = null
     ) {
         $this->organization = $organization ?? TenantContext::getOrganization();
+    }
+
+    /**
+     * Register the limit used when an organization's plan does not define one
+     * (or the organization has no subscription), e.g. for a module's own
+     * resources. Without it, such a resource is unlimited. Register defaults
+     * from a service provider's boot method; a negative limit means unlimited.
+     */
+    public static function registerDefault(string $key, mixed $limit): void
+    {
+        self::$registeredDefaults[$key] = $limit;
+    }
+
+    public static function forgetDefault(string $key): void
+    {
+        unset(self::$registeredDefaults[$key]);
     }
 
     /**
@@ -72,7 +95,14 @@ class ResourceLimits
             return $this->getDefaultLimits();
         }
 
-        return $subscription->plan?->limits ?? $this->getDefaultLimits();
+        $limits = $subscription->plan?->limits;
+
+        if ($limits === null) {
+            return $this->getDefaultLimits();
+        }
+
+        // Limits registered by modules count even when the plan omits them.
+        return [...self::$registeredDefaults, ...$limits];
     }
 
     /**
@@ -85,6 +115,7 @@ class ResourceLimits
             'storage' => 1024 * 1024 * 100, // 100MB in bytes
             'api_calls' => 1000,
             'projects' => 1,
+            ...self::$registeredDefaults,
         ];
     }
 

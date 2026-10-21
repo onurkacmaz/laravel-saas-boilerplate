@@ -35,8 +35,9 @@ return [
     | Events
     |--------------------------------------------------------------------------
     |
-    | Events emitted by the application. Endpoints may subscribe to any of
-    | them, or to "*" for every event.
+    | Events emitted by the application, listed by GET /api/v1/webhooks/events.
+    | Endpoints may subscribe to any of them, or to "*" for every event.
+    | Modules add their own events to this list from their service provider.
     |
     */
 

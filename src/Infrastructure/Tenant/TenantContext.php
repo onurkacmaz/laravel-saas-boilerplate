@@ -42,6 +42,42 @@ class TenantContext
         self::$currentUser = null;
     }
 
+    /**
+     * Run the callback with the given organization as the current tenant (or
+     * none), then restore the previous one.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function runAs(?Organization $organization, callable $callback): mixed
+    {
+        $previous = self::$currentOrganization;
+        self::$currentOrganization = $organization;
+
+        try {
+            return $callback();
+        } finally {
+            self::$currentOrganization = $previous;
+        }
+    }
+
+    /**
+     * Run the callback without a current tenant, e.g. to create system
+     * records (`organization_id = NULL`), which models using
+     * BelongsToOrganizationTrait would otherwise assign to the tenant.
+     *
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    public static function runWithoutTenant(callable $callback): mixed
+    {
+        return self::runAs(null, $callback);
+    }
+
     public static function hasOrganization(): bool
     {
         return self::$currentOrganization !== null;
