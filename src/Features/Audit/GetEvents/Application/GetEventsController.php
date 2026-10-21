@@ -24,7 +24,7 @@ class GetEventsController
         return response()->json([
             'data' => $events,
             'status' => 'success',
-            'message' => 'Events retrieved successfully.',
+            'message' => __('Events retrieved successfully.'),
         ]);
     }
 }

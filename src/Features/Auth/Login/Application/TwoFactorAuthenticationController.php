@@ -32,7 +32,7 @@ class TwoFactorAuthenticationController
                 'token' => $token,
             ],
             'status' => 'success',
-            'message' => '2FA verified for this user.',
+            'message' => __('2FA verified for this user.'),
         ]);
     }
 }

@@ -14,7 +14,7 @@ class IpOrCidr implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! is_string($value) || ! self::isValid($value)) {
-            $fail('The :attribute must be an IP address or a CIDR range.');
+            $fail('The :attribute must be an IP address or a CIDR range.')->translate();
         }
     }
 

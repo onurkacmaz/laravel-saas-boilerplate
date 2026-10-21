@@ -12,7 +12,7 @@ class InvalidJWTException extends Exception
     {
         return response()->json([
             'status' => 'error',
-            'message' => 'Invalid or expired JWT token.',
+            'message' => __('Invalid or expired JWT token.'),
         ], Response::HTTP_UNAUTHORIZED);
     }
 }

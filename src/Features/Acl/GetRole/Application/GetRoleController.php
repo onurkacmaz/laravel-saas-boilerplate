@@ -21,7 +21,7 @@ class GetRoleController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Role retrieved successfully',
+            'message' => __('Role retrieved successfully'),
             'data' => $role,
         ]);
     }

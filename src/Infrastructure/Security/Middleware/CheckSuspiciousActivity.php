@@ -34,14 +34,14 @@ class CheckSuspiciousActivity
             $this->logSuspiciousActivity($request, 'Suspicious pattern detected');
             $this->incrementFailureCount($ip);
 
-            return response()->json(['message' => 'Invalid request'], 400);
+            return response()->json(['message' => __('Invalid request')], 400);
         }
 
         // Check if IP is blocked
         if ($this->isBlocked($ip)) {
             $this->logSuspiciousActivity($request, 'Blocked IP attempted access');
 
-            return response()->json(['message' => 'Access denied'], 403);
+            return response()->json(['message' => __('Access denied')], 403);
         }
 
         // Check for unusual request rate
@@ -49,7 +49,7 @@ class CheckSuspiciousActivity
             $this->logSuspiciousActivity($request, 'Unusual request rate detected');
             $this->incrementFailureCount($ip);
 
-            return response()->json(['message' => 'Too many requests'], 429);
+            return response()->json(['message' => __('Too many requests')], 429);
         }
 
         return $next($request);

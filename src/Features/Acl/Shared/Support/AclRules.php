@@ -28,7 +28,7 @@ final class AclRules
     public static function ensureMutable(Role|Permission $record): void
     {
         if ($record->isSystem()) {
-            abort(403, sprintf('System %s cannot be modified.', $record instanceof Role ? 'roles' : 'permissions'));
+            abort(403, $record instanceof Role ? __('System roles cannot be modified.') : __('System permissions cannot be modified.'));
         }
     }
 

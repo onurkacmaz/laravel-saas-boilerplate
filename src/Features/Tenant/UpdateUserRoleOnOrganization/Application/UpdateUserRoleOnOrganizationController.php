@@ -32,7 +32,7 @@ class UpdateUserRoleOnOrganizationController
 
         return $user->toResource(UserResource::class)->additional([
             'status' => 'success',
-            'message' => 'User role updated successfully',
+            'message' => __('User role updated successfully'),
         ]);
     }
 }

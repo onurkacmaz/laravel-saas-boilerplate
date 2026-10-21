@@ -25,7 +25,7 @@ class GetOrganizationController
 
         return $organization->toResource(OrganizationResource::class)->additional([
             'status' => 'success',
-            'message' => 'Organization retrieved successfully.',
+            'message' => __('Organization retrieved successfully.'),
         ]);
     }
 }

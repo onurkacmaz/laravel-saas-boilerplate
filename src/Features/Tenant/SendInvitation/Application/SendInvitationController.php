@@ -33,7 +33,7 @@ class SendInvitationController
 
         return $invitation->toResource(InvitationResource::class)->additional([
             'status' => 'success',
-            'message' => 'Invitation sent successfully.',
+            'message' => __('Invitation sent successfully.'),
         ])->response()->setStatusCode(Response::HTTP_CREATED);
     }
 }

@@ -14,6 +14,7 @@ class SendInvitationEmail
     public function handle(InvitationSent $event): void
     {
         Notification::route('mail', $event->invitation->email)
-            ->notify(new OrganizationInvitation($event->invitation));
+            // The invitee has no account yet: write in the inviter's language.
+            ->notify((new OrganizationInvitation($event->invitation))->locale(app()->getLocale()));
     }
 }

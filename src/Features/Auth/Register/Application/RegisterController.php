@@ -26,7 +26,7 @@ class RegisterController
 
         return $user->toResource(UserResource::class)->additional([
             'status' => 'success',
-            'message' => 'User registered successfully.',
+            'message' => __('User registered successfully.'),
         ]);
     }
 }

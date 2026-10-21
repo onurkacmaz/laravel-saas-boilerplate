@@ -36,13 +36,13 @@ class ResetPasswordController
         if ($status !== Password::PASSWORD_RESET) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'This password reset token is invalid or has expired.',
+                'message' => __('This password reset token is invalid or has expired.'),
             ], 422);
         }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Your password has been reset.',
+            'message' => __('Your password has been reset.'),
         ]);
     }
 }

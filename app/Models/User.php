@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Features\Audit\Infrastructure\Eloquent\Models\AuditLog;
 use Firebase\JWT\JWT;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -35,8 +36,9 @@ use Laravel\Sanctum\HasApiTokens;
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Carbon|null $deleted_at
+ * @property string|null $locale
  */
-class User extends Authenticatable implements MustVerifyEmail
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasUuids, \Illuminate\Auth\MustVerifyEmail, Notifiable, SoftDeletes;
@@ -54,6 +56,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'password',
+        'locale',
     ];
 
     /**
@@ -84,6 +87,14 @@ class User extends Authenticatable implements MustVerifyEmail
             'last_login_at' => 'datetime',
             'deletion_requested_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The language of the e-mails sent to this user.
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
     }
 
     /**

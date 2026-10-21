@@ -23,7 +23,7 @@ class AssignToUserController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Role assigned successfully',
+            'message' => __('Role assigned successfully'),
             'data' => [
                 ...(new UserResource($user))->toArray($request),
                 'roles' => $user->roles,

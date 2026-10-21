@@ -34,13 +34,13 @@ class FailedRegistrationNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('['.config('app.name').'] A user registration failed')
-            ->greeting('Hello!')
-            ->line('A new user tried to register but the registration could not be completed.')
-            ->line('**E-mail:** '.($this->email !== '' ? $this->email : 'n/a'))
-            ->line('**Name:** '.($this->name !== '' ? $this->name : 'n/a'))
-            ->line('**Reason:** '.Str::limit($this->reason, 500))
-            ->line('Please check the application logs for more details.')
+            ->subject(__('[:app] A user registration failed', ['app' => config('app.name')]))
+            ->greeting(__('Hello!'))
+            ->line(__('A new user tried to register but the registration could not be completed.'))
+            ->line('**'.__('E-mail').':** '.($this->email !== '' ? $this->email : 'n/a'))
+            ->line('**'.__('Name').':** '.($this->name !== '' ? $this->name : 'n/a'))
+            ->line('**'.__('Reason').':** '.Str::limit($this->reason, 500))
+            ->line(__('Please check the application logs for more details.'))
             ->salutation('— '.config('app.name'));
     }
 

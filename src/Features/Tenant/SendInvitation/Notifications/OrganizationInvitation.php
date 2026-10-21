@@ -34,21 +34,21 @@ class OrganizationInvitation extends Notification
         $acceptUrl = $baseUrl.'/invitations/'.$this->invitation->token.'/accept';
         $rejectUrl = $baseUrl.'/invitations/'.$this->invitation->token.'/reject';
 
-        $inviterName = $this->invitation->invitedBy?->name ?? 'Someone';
+        $inviterName = $this->invitation->invitedBy?->name ?? __('Someone');
         $orgName = $this->invitation->organization?->name ?? config('app.name');
-        $roleName = $this->invitation->role?->name ?? 'Member';
-        $expiresAt = $this->invitation->expires_at?->format('F j, Y');
+        $roleName = $this->invitation->role?->name ?? __('Member');
+        $expiresAt = $this->invitation->expires_at?->isoFormat('LL');
 
         return (new MailMessage)
-            ->subject("You're invited to join {$orgName}")
-            ->greeting('Hello!')
-            ->line("{$inviterName} has invited you to join **{$orgName}** as a **{$roleName}**.")
-            ->when($expiresAt, fn (MailMessage $message) => $message->line("This invitation will expire on {$expiresAt}."))
-            ->action('Accept Invitation', $acceptUrl)
-            ->line('If you do not wish to join this organization, you can decline the invitation:')
-            ->line("[Decline Invitation]({$rejectUrl})")
-            ->line('If you did not expect this invitation, please ignore this email.')
-            ->salutation('Best regards, '.config('app.name'));
+            ->subject(__("You're invited to join :organization", ['organization' => $orgName]))
+            ->greeting(__('Hello!'))
+            ->line(__(':inviter has invited you to join **:organization** as a **:role**.', ['inviter' => $inviterName, 'organization' => $orgName, 'role' => $roleName]))
+            ->when($expiresAt, fn (MailMessage $message) => $message->line(__('This invitation will expire on :date.', ['date' => $expiresAt])))
+            ->action(__('Accept Invitation'), $acceptUrl)
+            ->line(__('If you do not wish to join this organization, you can decline the invitation:'))
+            ->line('['.__('Decline Invitation')."]({$rejectUrl})")
+            ->line(__('If you did not expect this invitation, please ignore this email.'))
+            ->salutation(__('Best regards, :app', ['app' => config('app.name')]));
     }
 
     /**

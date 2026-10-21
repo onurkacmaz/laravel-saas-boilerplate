@@ -25,7 +25,7 @@ class IpWhitelist
 
         if (! self::allows($request->ip(), $allowedIps)) {
             return response()->json([
-                'message' => 'Access denied. Your IP address is not whitelisted.',
+                'message' => __('Access denied. Your IP address is not whitelisted.'),
             ], 403);
         }
 

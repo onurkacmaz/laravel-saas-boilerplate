@@ -13,7 +13,7 @@ class CancelHandler
         $subscription = $command->organization->activeSubscription();
 
         if (! $subscription) {
-            throw new NotFoundHttpException('No active subscription');
+            throw new NotFoundHttpException(__('No active subscription'));
         }
 
         // Already scheduled for cancellation: only an immediate cancel changes anything.

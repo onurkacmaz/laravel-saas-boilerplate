@@ -24,7 +24,7 @@ class UpdateWebhookController
 
         return $webhook->toResource(WebhookResource::class)->additional([
             'status' => 'success',
-            'message' => 'Webhook updated successfully',
+            'message' => __('Webhook updated successfully'),
         ])->response()->setStatusCode(Response::HTTP_OK);
     }
 }

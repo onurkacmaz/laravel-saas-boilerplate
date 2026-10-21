@@ -18,7 +18,7 @@ class GetWebhookEventsController
     {
         return response()->json([
             'status' => 'success',
-            'message' => 'Webhook events fetched successfully',
+            'message' => __('Webhook events fetched successfully'),
             'data' => $handler(new GetWebhookEvents),
         ]);
     }

@@ -30,7 +30,7 @@ class AddUserToOrganizationController
 
         return $user->toResource(UserResource::class)->additional([
             'status' => 'success',
-            'message' => 'User added to organization successfully.',
+            'message' => __('User added to organization successfully.'),
         ])->response()->setStatusCode(201);
     }
 }

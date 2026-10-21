@@ -8,13 +8,14 @@ use Throwable;
 final class ApiError
 {
     /**
-     * Build a JSON error response.
+     * Build a JSON error response. The message is translated to the request's
+     * locale when a translation exists for it.
      */
     public static function make(string $message, int $status = 400, array $extra = []): JsonResponse
     {
         return response()->json([
             'status' => 'error',
-            'message' => $message,
+            'message' => __($message),
             ...$extra,
         ], $status);
     }

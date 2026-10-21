@@ -31,7 +31,7 @@ class ChangePasswordController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Password changed successfully.',
+            'message' => __('Password changed successfully.'),
         ]);
     }
 }

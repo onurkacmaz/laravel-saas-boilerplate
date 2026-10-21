@@ -13,6 +13,7 @@
 - [Getting Started](#getting-started)
 - [Multi-tenancy & Authorization](#multi-tenancy--authorization)
 - [Authentication](#authentication)
+- [Localization](#localization)
 - [Billing](#billing)
 - [Outgoing Webhooks](#outgoing-webhooks)
 - [GDPR](#gdpr)
@@ -144,6 +145,7 @@ The core's extension points, all registered from that provider:
 | Work for another tenant, or none | `TenantContext::runAs()`, `TenantContext::runWithoutTenant()` |
 | Requests to user-supplied URLs | `SafeUrl` rule, `UrlGuard::isAllowed()` |
 | Caching | `CacheService::remember()` and `CacheService::forget()` |
+| Translations | `$this->loadJsonTranslationsFrom(__DIR__.'/lang')`, with your messages written as `__('English text')` ([Localization](#localization)) |
 
 ## Requirements
 
@@ -259,6 +261,29 @@ To enable 2FA:
 
 E-mail links (invitations, password reset, e-mail verification, billing) point to `FRONTEND_URL`.
 
+## Localization
+
+The API answers in the language a client asks for with `Accept-Language`, among `APP_SUPPORTED_LOCALES` (English and Turkish by default), and says which one it used in `Content-Language`. That covers response messages, validation errors with readable field names, and errors raised by the framework. Other languages fall back to `APP_LOCALE`.
+
+E-mails go out in the user's language: it is saved on the account at sign-up (`users.locale`), can be changed with `PUT /api/v1/auth/profile` (`locale`), and is used through Laravel's `HasLocalePreference`. Invitations are written in the inviter's language, since the invitee has no account yet.
+
+Messages are written in English and looked up as keys:
+
+```php
+return response()->json(['message' => __('Project archived.')]);
+abort(409, __('This project is already archived.'));
+throw new InvalidArgumentException('The project is locked.'); // translated by ApiError
+```
+
+To add a language:
+1. Add its code to `APP_SUPPORTED_LOCALES`.
+2. Translate `lang/tr.json` into `lang/<code>.json`, and copy `lang/tr/` (validation, auth, passwords, pagination) to `lang/<code>/`.
+3. Modules ship their own `lang/<code>.json` and load it with `loadJsonTranslationsFrom()`.
+
+Plan limit and plan feature errors name the resource or feature in words (`status_pages` becomes "status pages", `audit-logs` "audit logs"), so a module translates its own names like any other message.
+
+Tests check that every message, in the core and in modules, has a Turkish translation and that the Turkish validation file has every rule.
+
 ## Billing
 
 1. Configure `STRIPE_KEY`, `STRIPE_SECRET` and `STRIPE_WEBHOOK_SECRET`.
@@ -363,6 +388,7 @@ Each contributor adds one section, named by its `section()` method. Names alread
 | `STRIPE_PRODUCT_PRO`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` | Stripe identifiers used by the plan seeder. |
 | `AUTH_TOKEN_LIFETIME` | API token lifetime in minutes. |
 | `JWT_SECRET`, `JWT_TTL` | Signing key (defaults to `APP_KEY`) and lifetime in minutes of the 2FA challenge tokens. |
+| `APP_SUPPORTED_LOCALES` | Comma-separated languages the API answers in (default `en,tr`). See [Localization](#localization). |
 | `ORGANIZATION_SETTINGS_DEFAULT_*` | Default timezone, locale and currency of new organizations. |
 | `INVITATION_EXPIRE_DAYS` | Invitation validity in days. |
 | `SECURITY_ALLOW_PRIVATE_URLS` | Allows requests to private addresses (webhooks, `UrlGuard`). For local development only. `WEBHOOKS_ALLOW_PRIVATE_URLS` is its former name and still works. |

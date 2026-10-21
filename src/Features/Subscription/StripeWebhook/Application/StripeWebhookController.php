@@ -172,7 +172,7 @@ class StripeWebhookController extends CashierController
             }
         }
 
-        return new JsonResponse(['message' => 'Webhook handled'], 200);
+        return new JsonResponse(['message' => __('Webhook handled')], 200);
     }
 
     /**
@@ -190,7 +190,7 @@ class StripeWebhookController extends CashierController
             }
         }
 
-        return new JsonResponse(['message' => 'Webhook handled'], 200);
+        return new JsonResponse(['message' => __('Webhook handled')], 200);
     }
 
     /**
@@ -210,7 +210,7 @@ class StripeWebhookController extends CashierController
             }
         }
 
-        return new JsonResponse(['message' => 'Webhook handled'], 200);
+        return new JsonResponse(['message' => __('Webhook handled')], 200);
     }
 
     /**
@@ -230,7 +230,7 @@ class StripeWebhookController extends CashierController
             }
         }
 
-        return new JsonResponse(['message' => 'Webhook handled'], 200);
+        return new JsonResponse(['message' => __('Webhook handled')], 200);
     }
 
     /**
@@ -246,7 +246,7 @@ class StripeWebhookController extends CashierController
             $organization?->updateDefaultPaymentMethod($data['id']);
         }
 
-        return new JsonResponse(['message' => 'Webhook handled'], 200);
+        return new JsonResponse(['message' => __('Webhook handled')], 200);
     }
 
     protected function cancelPreviousSubscription(Organization $organization, array $metadata, string $newStripeId): void

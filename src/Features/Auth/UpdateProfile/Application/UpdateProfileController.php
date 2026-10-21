@@ -13,8 +13,10 @@ use Illuminate\Support\Facades\Notification;
 class UpdateProfileController
 {
     /**
-     * Update the name or e-mail address of the authenticated user.
+     * Update the name, e-mail address or language of the authenticated user.
      *
+     * The language (`locale`, one of `config('app.supported_locales')`) is the
+     * one of the e-mails sent to the user.
      * Changing the e-mail address needs `current_password`. The new address
      * must be verified again: a verification link is sent to it, and the old
      * address is told about the change.
@@ -30,6 +32,10 @@ class UpdateProfileController
             $user->name = $request->validated('name');
         }
 
+        if ($request->has('locale')) {
+            $user->locale = $request->validated('locale');
+        }
+
         if ($changesEmail) {
             $user->forceFill([
                 'email' => $request->validated('email'),
@@ -41,15 +47,17 @@ class UpdateProfileController
 
         if ($changesEmail) {
             $user->sendEmailVerificationNotification();
-            Notification::route('mail', $previousEmail)->notify(new EmailChangedNotification($user->name, $user->email));
+            Notification::route('mail', $previousEmail)->notify(
+                (new EmailChangedNotification($user->name, $user->email))->locale($user->preferredLocale() ?? app()->getLocale())
+            );
         }
 
         return response()->json([
             'data' => new UserResource($user),
             'status' => 'success',
             'message' => $changesEmail
-                ? 'Profile updated. Check your new e-mail address for a verification link.'
-                : 'Profile updated.',
+                ? __('Profile updated. Check your new e-mail address for a verification link.')
+                : __('Profile updated.'),
         ]);
     }
 }

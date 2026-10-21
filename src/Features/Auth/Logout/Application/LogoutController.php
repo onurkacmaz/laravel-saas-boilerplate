@@ -26,7 +26,7 @@ class LogoutController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Logged out successfully.',
+            'message' => __('Logged out successfully.'),
         ]);
     }
 }

@@ -32,7 +32,7 @@ class GetInvitationsController
             )
         )->toResourceCollection(InvitationResource::class)->additional([
             'status' => 'success',
-            'message' => 'Invitations retrieved successfully.',
+            'message' => __('Invitations retrieved successfully.'),
         ]);
     }
 }

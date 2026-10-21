@@ -20,13 +20,13 @@ class RequireActiveSubscription
 
         if (! $organization) {
             return response()->json([
-                'message' => 'Organization context is required.',
+                'message' => __('Organization context is required.'),
             ], 403);
         }
 
         if (! $organization->hasActiveSubscription()) {
             return response()->json([
-                'message' => 'Active subscription required. Please subscribe to a plan.',
+                'message' => __('Active subscription required. Please subscribe to a plan.'),
                 'requires_subscription' => true,
             ], 402); // 402 Payment Required
         }
@@ -36,7 +36,7 @@ class RequireActiveSubscription
         // Check if the subscription is valid (not expired, not past due)
         if (! $subscription->hasValidSubscription()) {
             return response()->json([
-                'message' => 'Your subscription is not valid. Please update your payment method or renew your subscription.',
+                'message' => __('Your subscription is not valid. Please update your payment method or renew your subscription.'),
                 'subscription_status' => $subscription->status->value,
             ], 402);
         }

@@ -31,7 +31,7 @@ class LoginController
         if ($token === null) {
             return $user->toResource(UserResource::class)->additional([
                 'status' => 'success',
-                'message' => 'Two-factor authentication required. Please provide the code from your authenticator app.',
+                'message' => __('Two-factor authentication required. Please provide the code from your authenticator app.'),
                 'data' => [
                     'token' => $user->createJwtToken(),
                     'two_factor_required' => true,
@@ -45,7 +45,7 @@ class LoginController
                 'two_factor_required' => false,
             ],
             'status' => 'success',
-            'message' => 'User logged in successfully',
+            'message' => __('User logged in successfully'),
         ]);
     }
 }

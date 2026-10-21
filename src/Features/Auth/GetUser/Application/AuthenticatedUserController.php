@@ -22,7 +22,7 @@ class AuthenticatedUserController
 
         return $user->toResource(UserResource::class)->additional([
             'status' => 'success',
-            'message' => 'User retrieved successfully.',
+            'message' => __('User retrieved successfully.'),
         ]);
     }
 }

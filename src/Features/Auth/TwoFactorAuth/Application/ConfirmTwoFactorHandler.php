@@ -22,7 +22,7 @@ class ConfirmTwoFactorHandler
         $user = $command->user;
 
         if (! $user->two_factor_enabled || ! $user->two_factor_secret) {
-            abort(400, 'Two-factor authentication is not enabled for this user.');
+            abort(400, __('Two-factor authentication is not enabled for this user.'));
         }
 
         $passed = app(TwoFactor::class)->verifyOtp(

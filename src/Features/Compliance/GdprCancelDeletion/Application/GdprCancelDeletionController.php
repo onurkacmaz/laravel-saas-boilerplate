@@ -22,7 +22,7 @@ class GdprCancelDeletionController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Data deletion request cancelled successfully',
+            'message' => __('Data deletion request cancelled successfully'),
         ]);
     }
 }

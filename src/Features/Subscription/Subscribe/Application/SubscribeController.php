@@ -38,7 +38,7 @@ class SubscribeController
         } catch (InvalidArgumentException $exception) {
             return response()->json([
                 'status' => 'error',
-                'message' => $exception->getMessage(),
+                'message' => __($exception->getMessage()),
             ], Response::HTTP_BAD_REQUEST);
         } catch (Throwable $e) {
             // Never leak payment provider / infrastructure error details to clients.
@@ -46,13 +46,13 @@ class SubscribeController
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Unable to create the checkout session. Please try again later.',
+                'message' => __('Unable to create the checkout session. Please try again later.'),
             ], Response::HTTP_BAD_GATEWAY);
         }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Checkout session created',
+            'message' => __('Checkout session created'),
             'data' => $session->toArray(),
         ], Response::HTTP_CREATED);
     }

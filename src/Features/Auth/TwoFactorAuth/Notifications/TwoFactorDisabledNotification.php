@@ -34,14 +34,14 @@ class TwoFactorDisabledNotification extends Notification implements ShouldQueue
         $securityUrl = config('app.frontend_url').'/settings/security';
 
         return (new MailMessage)
-            ->subject('Two-Factor Authentication Disabled')
-            ->greeting("Hello {$this->user->name}!")
-            ->line('Two-factor authentication has been disabled on your account.')
-            ->line('Your account is now protected by your password only.')
-            ->line('**We recommend keeping two-factor authentication enabled** for better security.')
-            ->action('Re-enable Two-Factor Authentication', $securityUrl)
-            ->line('If you did not disable two-factor authentication, please contact our support team immediately and change your password.')
-            ->salutation('Best regards, '.config('app.name'));
+            ->subject(__('Two-Factor Authentication Disabled'))
+            ->greeting(__('Hello :name!', ['name' => $this->user->name]))
+            ->line(__('Two-factor authentication has been disabled on your account.'))
+            ->line(__('Your account is now protected by your password only.'))
+            ->line(__('**We recommend keeping two-factor authentication enabled** for better security.'))
+            ->action(__('Re-enable Two-Factor Authentication'), $securityUrl)
+            ->line(__('If you did not disable two-factor authentication, please contact our support team immediately and change your password.'))
+            ->salutation(__('Best regards, :app', ['app' => config('app.name')]));
     }
 
     /**

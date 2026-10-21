@@ -22,7 +22,7 @@ class RequirePlanFeature
 
         if (! $organization) {
             return response()->json([
-                'message' => 'Organization context is required.',
+                'message' => __('Organization context is required.'),
             ], 403);
         }
 
@@ -31,7 +31,10 @@ class RequirePlanFeature
         foreach ($features as $feature) {
             if (! $limits->hasFeature($feature)) {
                 return response()->json([
-                    'message' => "Your plan does not include the {$feature} feature.",
+                    'message' => __('Your plan does not include the :feature feature.', [
+                        // "status-page-branding" reads as "status page branding", which modules can translate.
+                        'feature' => __(str_replace(['-', '_'], ' ', $feature)),
+                    ]),
                     'feature' => $feature,
                     'upgrade_required' => true,
                 ], 402); // 402 Payment Required

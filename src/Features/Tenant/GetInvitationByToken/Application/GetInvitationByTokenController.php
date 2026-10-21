@@ -23,7 +23,7 @@ class GetInvitationByTokenController
 
         return $invitation->toResource(InvitationResource::class)->additional([
             'status' => 'success',
-            'message' => 'Invitation retrieved successfully.',
+            'message' => __('Invitation retrieved successfully.'),
         ]);
     }
 }
