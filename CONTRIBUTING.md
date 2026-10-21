@@ -51,6 +51,13 @@ Guidelines:
   the current organization (`TenantContext::getOrganization()->webhooks()->findOrFail($id)`).
 - Return API resources instead of raw models so sensitive attributes never leak.
 - Keep handlers free of HTTP concerns; controllers translate requests into commands.
+- Scramble builds the API documentation by calling every `FormRequest::rules()`
+  without a request, so without a tenant. A rule that reads the database must
+  cope with `TenantContext::getOrganization()` being `null`: a failing query
+  there aborts the surrounding transaction on PostgreSQL and breaks the tests.
+- Tests get the system roles from `userInOrganization('owner'|'admin'|'member')`
+  and the production defaults from `OrganizationSetting::factory()`; use its
+  `randomized()` state only when a test is about arbitrary settings.
 
 ## Pull request checklist
 
