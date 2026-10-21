@@ -70,3 +70,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `AuditLogger::log()` and `action()` accept an `organizationId`, to audit events outside a tenant request (queued jobs, scheduled commands). They could only use the current tenant.
 - `CacheService::forget()` removes a value stored with `remember()`. Only the fixed `clear*()` methods existed.
 - The thresholds of `security.check` are configurable (`config/security.php`), and a route can allow more requests per minute (`security.check:600`) or disable the rate check (`security.check:0`). The defaults keep the previous values, except that the request rate now trips above 100 requests per minute as documented, instead of above 101.
+- The README explains how to add a module and lists the core's extension points; CONTRIBUTING notes that Scramble resolves form request rules without a tenant.
+- `OrganizationSetting::factory()` creates the production default settings instead of random preferences and flags (random ones with `randomized()`), and `userInOrganization()` uses the system roles for "owner", "admin" and "member" like production. Tests depending on random settings were flaky.

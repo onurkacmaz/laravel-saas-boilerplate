@@ -3,6 +3,7 @@
 use App\Models\Organization;
 use App\Models\Role;
 use App\Models\User;
+use Features\Acl\Shared\Support\SystemRoles;
 use Tests\TestCase;
 
 /*
@@ -47,25 +48,31 @@ expect()->extend('toBeOne', function () {
 */
 
 /**
- * Create an organization and attach a new user to it with an organization
- * scoped role of the given slug ("owner", "admin", "member"...).
+ * Attach a new user to an organization (created when none is given) with the
+ * role of the given slug: the shared system role for "owner", "admin" and
+ * "member", as in production, or an organization scoped role otherwise. An
+ * "owner" of a new organization is also its owner (`owner_id`).
  *
  * @return array{0: User, 1: Organization, 2: Role}
  */
 function userInOrganization(string $roleSlug = 'member', ?Organization $organization = null): array
 {
     $user = User::factory()->create();
-    $organization ??= Organization::factory()->create();
+    $organization ??= Organization::factory()->create(
+        $roleSlug === SystemRoles::OWNER ? ['owner_id' => $user->id] : []
+    );
 
-    $role = Role::query()->withoutOrganization()
-        ->where('organization_id', $organization->id)
-        ->where('slug', $roleSlug)
-        ->first()
-        ?? Role::factory()->create([
-            'organization_id' => $organization->id,
-            'slug' => $roleSlug,
-            'name' => ucfirst($roleSlug),
-        ]);
+    $role = array_key_exists($roleSlug, SystemRoles::definitions())
+        ? SystemRoles::ensure($roleSlug)
+        : Role::query()->withoutOrganization()
+            ->where('organization_id', $organization->id)
+            ->where('slug', $roleSlug)
+            ->first()
+            ?? Role::factory()->create([
+                'organization_id' => $organization->id,
+                'slug' => $roleSlug,
+                'name' => ucfirst($roleSlug),
+            ]);
 
     $organization->users()->attach($user->id, ['role_id' => $role->id]);
 

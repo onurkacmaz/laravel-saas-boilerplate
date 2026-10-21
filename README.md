@@ -99,6 +99,52 @@ tests/Feature                      Cross-cutting tests (tenant isolation, auth f
 
 Modules: `Auth`, `Tenant`, `Acl`, `Subscription`, `Webhooks`, `Audit`, `Compliance`.
 
+### Adding your own module
+
+A product module can live next to the core ones without changing them. Give it one service provider, registered in `bootstrap/providers.php`, that wires everything:
+
+```php
+class ProjectsServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->mergeConfigFrom(__DIR__.'/Config/projects.php', 'projects');
+        $this->loadMigrationsFrom(__DIR__.'/Infrastructure/Eloquent/Migrations');
+
+        // Malformed identifiers become a 404 instead of a database error.
+        Route::patterns(['project' => '[0-9a-fA-F-]{36}']);
+
+        $this->app->register(CreateProjectServiceProvider::class); // one per slice
+    }
+
+    public function boot(): void
+    {
+        $this->app['router']->aliasMiddleware('projects.archived', RejectArchivedProject::class);
+
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            $schedule->command('projects:prune')->daily()->onOneServer();
+        });
+    }
+}
+```
+
+The core's extension points, all registered from that provider:
+
+| Need | Extension point |
+|------|-----------------|
+| Permissions for your features | System permissions plus `tenant.permission:<slug>` ([Permissions](#permissions)) |
+| Plan limits for your resources | `UsageTracker::registerCounter()`, `ResourceLimits::registerDefault()`, `limit:<resource>` ([Plan limits](#plan-limits-for-your-own-resources)) |
+| Paid features | `plan.feature:<feature>`, `ResourceLimits::hasFeature()` |
+| Reacting to plan changes | `OrganizationSubscriptionChanged` |
+| Seeding | `PlanSeeder::extend()`, `DatabaseSeeder::MODULE_SEEDERS` |
+| Organization feature flags | `config('settings.feature_flags')` |
+| Webhook events | `WebhookDispatcher::dispatch()` and `webhooks.events` ([Outgoing Webhooks](#outgoing-webhooks)) |
+| GDPR export and erasure | `ExportsUserData` contributors, `OrganizationDeleted` ([GDPR](#gdpr)) |
+| Audit entries outside a request | `AuditLogger::action(..., organizationId: $id)` |
+| Work for another tenant, or none | `TenantContext::runAs()`, `TenantContext::runWithoutTenant()` |
+| Requests to user-supplied URLs | `SafeUrl` rule, `UrlGuard::isAllowed()` |
+| Caching | `CacheService::remember()` and `CacheService::forget()` |
+
 ## Requirements
 
 - PHP 8.4 with the BCMath, Ctype, Fileinfo, JSON, Mbstring, OpenSSL, PDO and Tokenizer extensions

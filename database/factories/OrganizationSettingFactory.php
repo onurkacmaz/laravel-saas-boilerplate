@@ -14,7 +14,9 @@ class OrganizationSettingFactory extends Factory
     protected $model = OrganizationSetting::class;
 
     /**
-     * Define the model's default state.
+     * The settings a new organization gets in production, so tests do not
+     * depend on random preferences or flags. Use the states below to change
+     * them.
      *
      * @return array<string, mixed>
      */
@@ -22,6 +24,17 @@ class OrganizationSettingFactory extends Factory
     {
         return [
             'organization_id' => Organization::factory(),
+            ...OrganizationSetting::defaultAttributes(),
+        ];
+    }
+
+    /**
+     * Random but valid settings, e.g. to check that a feature copes with any
+     * combination.
+     */
+    public function randomized(): static
+    {
+        return $this->state(fn (array $attributes) => [
             'timezone' => fake()->timezone(),
             'locale' => fake()->randomElement(['en', 'tr', 'de', 'fr', 'es']),
             'date_format' => fake()->randomElement(['Y-m-d', 'd/m/Y', 'm/d/Y', 'd.m.Y']),
@@ -32,12 +45,10 @@ class OrganizationSettingFactory extends Factory
                 'push' => fake()->boolean(),
                 'sms' => fake()->boolean(),
             ],
-            'feature_flags' => [
-                'advanced_analytics' => fake()->boolean(),
-                'api_access' => fake()->boolean(),
-                'custom_branding' => fake()->boolean(),
-            ],
-        ];
+            'feature_flags' => collect(config('settings.feature_flags', []))
+                ->mapWithKeys(fn (string $flag) => [$flag => fake()->boolean()])
+                ->all(),
+        ]);
     }
 
     /**
