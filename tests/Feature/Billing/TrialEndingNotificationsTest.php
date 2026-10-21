@@ -7,8 +7,9 @@ use Illuminate\Support\Facades\Notification;
 
 uses(RefreshDatabase::class);
 
-it('notifies owners whose trial ends in three days', function (): void {
+it('notifies owners whose trial ends in three days', function (string $time): void {
     Notification::fake();
+    $this->travelTo(now()->setTimeFromTimeString($time));
 
     $endingSoon = Subscription::factory()->trialing()->create(['trial_ends_at' => now()->addDays(3)->setTime(12, 0)]);
     $endingLater = Subscription::factory()->trialing()->create(['trial_ends_at' => now()->addDays(10)]);
@@ -30,7 +31,7 @@ it('notifies owners whose trial ends in three days', function (): void {
     });
     Notification::assertNotSentTo($endingLater->organization->owner, TrialEndingSoonNotification::class);
     Notification::assertNotSentTo($canceled->organization->owner, TrialEndingSoonNotification::class);
-});
+})->with(['just after midnight' => '00:05', 'in the morning' => '09:30', 'in the afternoon' => '15:00', 'late at night' => '23:55']);
 
 it('renders trial notifications without a plan', function (): void {
     $subscription = Subscription::factory()->trialing()->create(['plan_id' => null]);
