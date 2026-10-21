@@ -61,3 +61,4 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - GDPR erasure,
   - webhook delivery.
 - Coverage now measures `app/` too and excludes test files. CI enforces a minimum of 90%; local line coverage is 98.5%.
+- `UsageTracker::registerCounter()` lets applications count their own plan-limited resources. Until now, `limit:<resource>` never blocked anything but `users` and `api_calls`, and the usage summary reported 0 for other resources.

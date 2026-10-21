@@ -160,7 +160,7 @@ Middleware available to routes:
 | `tenant.role:admin` | Requires the admin or owner role in the current organization. |
 | `tenant.role:owner` | Requires the organization owner. |
 | `subscription.required` | Requires an active subscription (`402` otherwise). |
-| `limit:<resource>` | Enforces a plan limit, for example `limit:users`. |
+| `limit:<resource>` | Enforces a plan limit, for example `limit:users`. See [Plan limits for your own resources](#plan-limits-for-your-own-resources). |
 | `rate.limit` | Plan-based rate limiting. |
 | `ip.whitelist:1.2.3.4,10.0.0.0/8` | Allows only the listed IPs or CIDR ranges. |
 | `security.check` | Optional heuristic blocking of suspicious payloads. |
@@ -208,6 +208,16 @@ E-mail links (invitations, password reset, e-mail verification, billing) point t
    - Paid plans return a Stripe Checkout URL.
    - Free plans are activated immediately.
    - New organizations are subscribed to the free plan automatically when one exists.
+
+### Plan limits for your own resources
+
+`limit:<resource>` compares the plan's `limits.<resource>` with the organization's current count. The boilerplate counts `users` (members) and `api_calls` (usage of the current month); register a counter for every other resource you limit, from a service provider's `boot()` method:
+
+```php
+UsageTracker::registerCounter('projects', fn (Organization $organization) => $organization->projects()->count());
+```
+
+The counter also feeds `GET /api/v1/usage`. Resources without a counter count as 0, so their limit never blocks.
 
 ## Outgoing Webhooks
 
