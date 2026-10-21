@@ -72,12 +72,18 @@ class TrialEndingSoonNotification extends Notification implements ShouldQueue
     }
 
     /**
-     * Whole days left in the trial (Carbon 3 returns signed, fractional values).
+     * Calendar days left in the trial. Counting days rather than rounding the
+     * elapsed time keeps the number stable whatever the time of day the
+     * notification is sent (a trial ending in three days says 3, not 4).
      */
     private function daysRemaining(): ?int
     {
         $trialEndsAt = $this->subscription->trial_ends_at;
 
-        return $trialEndsAt ? max(0, (int) ceil(now()->diffInDays($trialEndsAt, false))) : null;
+        if (! $trialEndsAt) {
+            return null;
+        }
+
+        return max(0, (int) now()->startOfDay()->diffInDays($trialEndsAt->copy()->startOfDay(), false));
     }
 }
