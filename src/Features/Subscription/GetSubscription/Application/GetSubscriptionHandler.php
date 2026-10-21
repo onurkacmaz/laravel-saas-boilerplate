@@ -15,7 +15,7 @@ class GetSubscriptionHandler
         $subscription = $organization->activeSubscription();
 
         if (! $subscription) {
-            throw new NotFoundHttpException('No active subscription');
+            throw new NotFoundHttpException(__('No active subscription'));
         }
 
         return $subscription->load('plan');

@@ -22,7 +22,7 @@ class RequireTenant
     {
         if (! TenantContext::hasOrganization()) {
             return response()->json([
-                'message' => 'Organization context is required. Please provide X-Organization-Id header.',
+                'message' => __('Organization context is required. Please provide X-Organization-Id header.'),
             ], 403);
         }
 
@@ -30,7 +30,7 @@ class RequireTenant
 
         if ($user && ! TenantContext::userBelongsToOrganization() && ! TenantContext::userIsOwner()) {
             return response()->json([
-                'message' => 'You do not have access to this organization.',
+                'message' => __('You do not have access to this organization.'),
             ], 403);
         }
 
@@ -42,7 +42,7 @@ class RequireTenant
 
         if ($routeOrganization !== null && (string) $routeOrganization !== TenantContext::getOrganizationId()) {
             return response()->json([
-                'message' => 'The requested organization does not match the X-Organization-Id header.',
+                'message' => __('The requested organization does not match the X-Organization-Id header.'),
             ], 403);
         }
 

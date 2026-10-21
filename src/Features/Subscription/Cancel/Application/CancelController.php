@@ -28,7 +28,7 @@ class CancelController
 
         return $subscription->toResource(SubscriptionResource::class)->additional([
             'status' => 'success',
-            'message' => 'Subscription cancelled successfully',
+            'message' => __('Subscription cancelled successfully'),
         ]);
     }
 }

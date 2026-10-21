@@ -24,7 +24,7 @@ class VerifyEmailController
         if (! $user || ! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Invalid verification link.',
+                'message' => __('Invalid verification link.'),
             ], 403);
         }
 
@@ -34,7 +34,7 @@ class VerifyEmailController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'E-mail address verified.',
+            'message' => __('E-mail address verified.'),
         ]);
     }
 }

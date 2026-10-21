@@ -22,7 +22,7 @@ class GetOrganizationSettingsController
 
         return $settings->toResource(OrganizationSettingResource::class)->additional([
             'status' => 'success',
-            'message' => 'Organization settings retrieved successfully.',
+            'message' => __('Organization settings retrieved successfully.'),
         ])->response()->setStatusCode(200);
     }
 }

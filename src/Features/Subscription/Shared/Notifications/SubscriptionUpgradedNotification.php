@@ -37,20 +37,21 @@ class SubscriptionUpgradedNotification extends Notification implements ShouldQue
         $oldPlanName = $this->oldPlan->name;
         $organizationName = ($this->subscription->organization?->name ?? config('app.name'));
         $dashboardUrl = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/organizations/'.$this->subscription->organization_id.'/dashboard';
+        $limits = $this->subscription->plan?->limits ?? [];
 
         return (new MailMessage)
-            ->subject("You've upgraded to {$newPlanName}!")
-            ->greeting('Hello!')
-            ->line("Great news! You've successfully upgraded **{$organizationName}** from **{$oldPlanName}** to **{$newPlanName}**.")
-            ->line('Your new plan includes:')
-            ->line("- **Users:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['users'] ?? null)}")
-            ->line("- **Storage:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['storage'] ?? null, 'MB')}")
-            ->line("- **API Calls:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['api_calls'] ?? null)}")
-            ->line("- **Projects:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['projects'] ?? null)}")
-            ->line('All features are immediately available!')
-            ->action('Go to Dashboard', $dashboardUrl)
-            ->line('Thank you for choosing a higher plan!')
-            ->salutation('Best regards, '.config('app.name'));
+            ->subject(__("You've upgraded to :plan!", ['plan' => $newPlanName]))
+            ->greeting(__('Hello!'))
+            ->line(__("Great news! You've successfully upgraded **:organization** from **:old** to **:new**.", ['organization' => $organizationName, 'old' => $oldPlanName, 'new' => $newPlanName]))
+            ->line(__('Your new plan includes:'))
+            ->line('- **'.__('Users').':** '.$this->formatLimit($limits['users'] ?? null))
+            ->line('- **'.__('Storage').':** '.$this->formatLimit($limits['storage'] ?? null, 'MB'))
+            ->line('- **'.__('API Calls').':** '.$this->formatLimit($limits['api_calls'] ?? null))
+            ->line('- **'.__('Projects').':** '.$this->formatLimit($limits['projects'] ?? null))
+            ->line(__('All features are immediately available!'))
+            ->action(__('Go to Dashboard'), $dashboardUrl)
+            ->line(__('Thank you for choosing a higher plan!'))
+            ->salutation(__('Best regards, :app', ['app' => config('app.name')]));
     }
 
     /**
@@ -71,7 +72,7 @@ class SubscriptionUpgradedNotification extends Notification implements ShouldQue
     private function formatLimit(?int $value, string $unit = ''): string
     {
         if ($value === null || $value === -1) {
-            return 'Unlimited';
+            return __('Unlimited');
         }
 
         return number_format($value).($unit ? ' '.$unit : '');

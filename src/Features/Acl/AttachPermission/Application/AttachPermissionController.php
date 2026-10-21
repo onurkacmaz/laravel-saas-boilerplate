@@ -22,7 +22,7 @@ class AttachPermissionController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Permission attached successfully',
+            'message' => __('Permission attached successfully'),
             'data' => $role,
         ]);
     }

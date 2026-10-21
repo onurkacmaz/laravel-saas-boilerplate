@@ -22,7 +22,7 @@ class GetWebhookController
 
         return $webhook->toResource(WebhookResource::class)->additional([
             'status' => 'success',
-            'message' => 'Webhook fetched successfully',
+            'message' => __('Webhook fetched successfully'),
         ]);
     }
 }

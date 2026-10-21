@@ -24,7 +24,7 @@ class UpdatePermissionController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Permission updated successfully',
+            'message' => __('Permission updated successfully'),
             'data' => $permission,
         ]);
     }

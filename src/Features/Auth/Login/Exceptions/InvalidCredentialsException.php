@@ -12,7 +12,7 @@ class InvalidCredentialsException extends Exception
     {
         return response()->json([
             'status' => 'error',
-            'message' => 'Invalid email or password.',
+            'message' => __('Invalid email or password.'),
         ], Response::HTTP_UNAUTHORIZED);
     }
 }

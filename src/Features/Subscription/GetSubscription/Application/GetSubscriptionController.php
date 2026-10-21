@@ -20,7 +20,7 @@ class GetSubscriptionController
 
         return $subscription->toResource(SubscriptionResource::class)->additional([
             'status' => 'success',
-            'message' => 'Subscription retrieved',
+            'message' => __('Subscription retrieved'),
         ]);
     }
 }

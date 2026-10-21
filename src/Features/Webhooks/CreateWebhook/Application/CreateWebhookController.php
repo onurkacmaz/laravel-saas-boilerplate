@@ -35,7 +35,7 @@ class CreateWebhookController
 
         return $webhook->toResource(WebhookResource::class)->additional([
             'status' => 'success',
-            'message' => 'Webhook created successfully',
+            'message' => __('Webhook created successfully'),
         ])->response()->setStatusCode(Response::HTTP_CREATED);
     }
 }

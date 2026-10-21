@@ -33,23 +33,23 @@ class SubscriptionCanceledNotification extends Notification implements ShouldQue
     {
         $planName = ($this->subscription->plan?->name ?? config('app.name'));
         $organizationName = ($this->subscription->organization?->name ?? config('app.name'));
-        $endsAt = $this->subscription->ends_at?->format('F j, Y');
+        $endsAt = $this->subscription->ends_at?->isoFormat('LL');
 
         $message = (new MailMessage)
-            ->subject("Your {$planName} subscription has been canceled")
-            ->greeting('Hello!')
-            ->line("Your **{$planName}** subscription for **{$organizationName}** has been canceled.");
+            ->subject(__('Your :plan subscription has been canceled', ['plan' => $planName]))
+            ->greeting(__('Hello!'))
+            ->line(__('Your **:plan** subscription for **:organization** has been canceled.', ['plan' => $planName, 'organization' => $organizationName]));
 
         if ($endsAt) {
-            $message->line("You will continue to have access to all features until **{$endsAt}**.");
+            $message->line(__('You will continue to have access to all features until **:date**.', ['date' => $endsAt]));
         } else {
-            $message->line('Your access has been immediately revoked.');
+            $message->line(__('Your access has been immediately revoked.'));
         }
 
-        $message->line('If you change your mind, you can reactivate your subscription anytime.')
-            ->action('View Plans', rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/plans')
-            ->line('If you have any questions, please contact our support team.')
-            ->salutation('Best regards, '.config('app.name'));
+        $message->line(__('If you change your mind, you can reactivate your subscription anytime.'))
+            ->action(__('View Plans'), rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/plans')
+            ->line(__('If you have any questions, please contact our support team.'))
+            ->salutation(__('Best regards, :app', ['app' => config('app.name')]));
 
         return $message;
     }

@@ -22,7 +22,7 @@ class EnableTwoFactorHandler
         $user = $command->user;
 
         if ($user->hasTwoFactorEnabled()) {
-            throw new ConflictHttpException('Two-factor authentication is already enabled. Disable it first to re-enroll.');
+            throw new ConflictHttpException(__('Two-factor authentication is already enabled. Disable it first to re-enroll.'));
         }
 
         $twoFactor = app(TwoFactor::class);

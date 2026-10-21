@@ -21,7 +21,7 @@ class ForgotPasswordController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'If an account exists for this e-mail address, a password reset link has been sent.',
+            'message' => __('If an account exists for this e-mail address, a password reset link has been sent.'),
         ]);
     }
 }

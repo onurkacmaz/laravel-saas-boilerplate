@@ -31,7 +31,7 @@ class RejectInvitationController
 
         return $invitation->toResource(InvitationResource::class)->additional([
             'status' => 'success',
-            'message' => 'Invitation rejected successfully',
+            'message' => __('Invitation rejected successfully'),
         ]);
     }
 }

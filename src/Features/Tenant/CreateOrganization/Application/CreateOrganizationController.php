@@ -24,7 +24,7 @@ class CreateOrganizationController
 
         return $organization->toResource(OrganizationResource::class)->additional([
             'status' => 'success',
-            'message' => 'Organization created successfully',
+            'message' => __('Organization created successfully'),
         ])->response()->setStatusCode(201);
     }
 }

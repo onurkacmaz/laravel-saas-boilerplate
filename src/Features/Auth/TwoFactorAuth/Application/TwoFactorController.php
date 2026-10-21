@@ -31,7 +31,7 @@ class TwoFactorController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Scan the QR code with your authenticator app, then confirm with a code to finish enabling 2FA.',
+            'message' => __('Scan the QR code with your authenticator app, then confirm with a code to finish enabling 2FA.'),
             'data' => $data,
         ], Response::HTTP_ACCEPTED);
     }
@@ -49,7 +49,7 @@ class TwoFactorController
 
         return response()->json([
             'status' => 'success',
-            'message' => '2FA disabled for this user.',
+            'message' => __('2FA disabled for this user.'),
         ]);
     }
 
@@ -73,7 +73,7 @@ class TwoFactorController
         if (! $passed) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Invalid 2FA code.',
+                'message' => __('Invalid 2FA code.'),
                 'data' => [
                     'verified' => false,
                 ],
@@ -82,7 +82,7 @@ class TwoFactorController
 
         return response()->json([
             'status' => 'success',
-            'message' => '2FA verified successfully. Store your recovery codes in a safe place.',
+            'message' => __('2FA verified successfully. Store your recovery codes in a safe place.'),
             'data' => [
                 'verified' => true,
                 'recovery_codes' => $user->recoveryCodes(),
@@ -103,13 +103,13 @@ class TwoFactorController
         if (! $user->hasTwoFactorEnabled()) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Two-factor authentication is not enabled for this user.',
+                'message' => __('Two-factor authentication is not enabled for this user.'),
             ], Response::HTTP_BAD_REQUEST);
         }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Recovery codes retrieved successfully.',
+            'message' => __('Recovery codes retrieved successfully.'),
             'data' => $user->recoveryCodes(),
         ]);
     }
@@ -129,13 +129,13 @@ class TwoFactorController
         if (! $user->hasTwoFactorEnabled()) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Two-factor authentication is not enabled for this user.',
+                'message' => __('Two-factor authentication is not enabled for this user.'),
             ], Response::HTTP_BAD_REQUEST);
         }
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Recovery codes regenerated successfully.',
+            'message' => __('Recovery codes regenerated successfully.'),
             'data' => $user->regenerateRecoveryCodes(),
         ]);
     }

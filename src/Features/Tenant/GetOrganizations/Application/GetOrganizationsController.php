@@ -29,7 +29,7 @@ class GetOrganizationsController
 
         return $organizations->toResourceCollection(OrganizationResource::class)->additional([
             'status' => 'success',
-            'message' => 'Organizations retrieved successfully.',
+            'message' => __('Organizations retrieved successfully.'),
         ]);
     }
 }

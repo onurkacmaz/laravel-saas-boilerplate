@@ -19,7 +19,7 @@ class GetLimitsController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Limits retrieved successfully',
+            'message' => __('Limits retrieved successfully'),
             'data' => $limits,
         ]);
     }

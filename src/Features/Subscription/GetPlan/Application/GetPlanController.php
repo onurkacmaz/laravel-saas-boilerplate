@@ -22,7 +22,7 @@ class GetPlanController
 
         return $plan->toResource(PlanResource::class)->additional([
             'status' => 'success',
-            'message' => 'Plan retrieved successfully',
+            'message' => __('Plan retrieved successfully'),
         ]);
     }
 }

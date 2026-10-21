@@ -33,7 +33,7 @@ class GetWebhookDeliveriesController
 
         return $deliveries->toResourceCollection(WebhookDeliveryResource::class)->additional([
             'status' => 'success',
-            'message' => 'Webhook deliveries retrieved successfully.',
+            'message' => __('Webhook deliveries retrieved successfully.'),
         ]);
     }
 }

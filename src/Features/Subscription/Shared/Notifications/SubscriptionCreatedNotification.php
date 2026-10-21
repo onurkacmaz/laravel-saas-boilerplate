@@ -34,25 +34,25 @@ class SubscriptionCreatedNotification extends Notification implements ShouldQueu
         $planName = ($this->subscription->plan?->name ?? config('app.name'));
         $organizationName = ($this->subscription->organization?->name ?? config('app.name'));
         $dashboardUrl = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/organizations/'.$this->subscription->organization_id.'/dashboard';
+        $limits = $this->subscription->plan?->limits ?? [];
 
         $message = (new MailMessage)
-            ->subject("Welcome to {$planName}!")
-            ->greeting('Hello!')
-            ->line("Thank you for subscribing to **{$planName}** for **{$organizationName}**!");
+            ->subject(__('Welcome to :plan!', ['plan' => $planName]))
+            ->greeting(__('Hello!'))
+            ->line(__('Thank you for subscribing to **:plan** for **:organization**!', ['plan' => $planName, 'organization' => $organizationName]));
 
         if ($this->subscription->onTrial() && $this->subscription->trial_ends_at) {
-            $trialEndsAt = $this->subscription->trial_ends_at->format('F j, Y');
-            $message->line("Your trial period is active until **{$trialEndsAt}**. Enjoy full access to all features!");
+            $message->line(__('Your trial period is active until **:date**. Enjoy full access to all features!', ['date' => $this->subscription->trial_ends_at->isoFormat('LL')]));
         }
 
-        $message->line('Here are your plan benefits:')
-            ->line("- **Users:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['users'] ?? null)}")
-            ->line("- **Storage:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['storage'] ?? null, 'MB')}")
-            ->line("- **API Calls:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['api_calls'] ?? null)}")
-            ->line("- **Projects:** {$this->formatLimit(($this->subscription->plan?->limits ?? [])['projects'] ?? null)}")
-            ->action('Go to Dashboard', $dashboardUrl)
-            ->line('If you have any questions, our support team is here to help!')
-            ->salutation('Best regards, '.config('app.name'));
+        $message->line(__('Here are your plan benefits:'))
+            ->line('- **'.__('Users').':** '.$this->formatLimit($limits['users'] ?? null))
+            ->line('- **'.__('Storage').':** '.$this->formatLimit($limits['storage'] ?? null, 'MB'))
+            ->line('- **'.__('API Calls').':** '.$this->formatLimit($limits['api_calls'] ?? null))
+            ->line('- **'.__('Projects').':** '.$this->formatLimit($limits['projects'] ?? null))
+            ->action(__('Go to Dashboard'), $dashboardUrl)
+            ->line(__('If you have any questions, our support team is here to help!'))
+            ->salutation(__('Best regards, :app', ['app' => config('app.name')]));
 
         return $message;
     }
@@ -76,7 +76,7 @@ class SubscriptionCreatedNotification extends Notification implements ShouldQueu
     private function formatLimit(?int $value, string $unit = ''): string
     {
         if ($value === null || $value === -1) {
-            return 'Unlimited';
+            return __('Unlimited');
         }
 
         return number_format($value).($unit ? ' '.$unit : '');

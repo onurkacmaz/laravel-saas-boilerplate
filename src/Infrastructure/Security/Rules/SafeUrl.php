@@ -14,7 +14,7 @@ class SafeUrl implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! is_string($value) || ! UrlGuard::isAllowed($value)) {
-            $fail('The :attribute must be a public http(s) URL.');
+            $fail('The :attribute must be a public http(s) URL.')->translate();
         }
     }
 }

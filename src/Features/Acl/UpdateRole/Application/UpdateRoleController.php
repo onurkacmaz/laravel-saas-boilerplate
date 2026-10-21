@@ -24,7 +24,7 @@ class UpdateRoleController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Role updated successfully',
+            'message' => __('Role updated successfully'),
             'data' => $role,
         ]);
     }

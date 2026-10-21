@@ -25,7 +25,7 @@ class CreateRoleController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Role created successfully',
+            'message' => __('Role created successfully'),
             'data' => $role,
         ], Response::HTTP_CREATED);
     }

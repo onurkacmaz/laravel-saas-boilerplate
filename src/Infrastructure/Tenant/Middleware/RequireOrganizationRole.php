@@ -23,7 +23,7 @@ class RequireOrganizationRole
 
         if (! $organization || ! $user) {
             return response()->json([
-                'message' => 'Organization context is required. Please provide X-Organization-Id header.',
+                'message' => __('Organization context is required. Please provide X-Organization-Id header.'),
             ], 403);
         }
 
@@ -40,7 +40,7 @@ class RequireOrganizationRole
 
         if (! $allowed) {
             return response()->json([
-                'message' => 'You do not have permission to perform this action.',
+                'message' => __('You do not have permission to perform this action.'),
             ], 403);
         }
 

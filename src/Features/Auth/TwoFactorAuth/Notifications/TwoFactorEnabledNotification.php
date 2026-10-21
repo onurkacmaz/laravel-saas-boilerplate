@@ -34,17 +34,17 @@ class TwoFactorEnabledNotification extends Notification implements ShouldQueue
         $securityUrl = config('app.frontend_url').'/settings/security';
 
         return (new MailMessage)
-            ->subject('Two-Factor Authentication Enabled')
-            ->greeting("Hello {$this->user->name}!")
-            ->line('Two-factor authentication has been successfully enabled on your account.')
-            ->line('This adds an extra layer of security by requiring both your password and an authentication code to sign in.')
-            ->line('**What this means:**')
-            ->line('- You will need to enter a code from your authenticator app each time you log in')
-            ->line('- Your recovery codes can be used if you lose access to your authenticator app')
-            ->line('- Keep your recovery codes in a safe place')
-            ->action('Manage Security Settings', $securityUrl)
-            ->line('If you did not enable two-factor authentication, please contact our support team immediately.')
-            ->salutation('Best regards, '.config('app.name'));
+            ->subject(__('Two-Factor Authentication Enabled'))
+            ->greeting(__('Hello :name!', ['name' => $this->user->name]))
+            ->line(__('Two-factor authentication has been successfully enabled on your account.'))
+            ->line(__('This adds an extra layer of security by requiring both your password and an authentication code to sign in.'))
+            ->line('**'.__('What this means:').'**')
+            ->line('- '.__('You will need to enter a code from your authenticator app each time you log in'))
+            ->line('- '.__('Your recovery codes can be used if you lose access to your authenticator app'))
+            ->line('- '.__('Keep your recovery codes in a safe place'))
+            ->action(__('Manage Security Settings'), $securityUrl)
+            ->line(__('If you did not enable two-factor authentication, please contact our support team immediately.'))
+            ->salutation(__('Best regards, :app', ['app' => config('app.name')]));
     }
 
     /**

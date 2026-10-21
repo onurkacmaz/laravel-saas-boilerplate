@@ -22,7 +22,7 @@ class GetAuditController
 
         return (new AuditLogResource($auditLog))->additional([
             'status' => 'success',
-            'message' => 'Audit log retrieved successfully.',
+            'message' => __('Audit log retrieved successfully.'),
         ]);
     }
 }

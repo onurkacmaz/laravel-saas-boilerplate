@@ -30,6 +30,8 @@ class RegisterUserHandler
                     'name' => $command->name,
                     'email' => $email,
                     'password' => $command->password,
+                    // E-mails go out in the language the user signed up in.
+                    'locale' => app()->getLocale(),
                 ]);
 
                 $user->assignDefaultRole();

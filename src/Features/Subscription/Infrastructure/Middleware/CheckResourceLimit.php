@@ -24,7 +24,7 @@ class CheckResourceLimit
 
         if (! $organization) {
             return response()->json([
-                'message' => 'Organization context is required.',
+                'message' => __('Organization context is required.'),
             ], 403);
         }
 
@@ -36,7 +36,7 @@ class CheckResourceLimit
 
         if ($limits->hasReached($resourceType, $current)) {
             return response()->json([
-                'message' => "You have reached the limit for {$resourceType}.",
+                'message' => __('You have reached the limit for :resource.', ['resource' => $resourceType]),
                 'resource' => $resourceType,
                 'current' => $current,
                 'limit' => $limit,

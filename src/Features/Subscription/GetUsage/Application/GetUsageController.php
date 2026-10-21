@@ -19,7 +19,7 @@ class GetUsageController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Usage retrieved successfully',
+            'message' => __('Usage retrieved successfully'),
             'data' => $usage,
         ]);
     }

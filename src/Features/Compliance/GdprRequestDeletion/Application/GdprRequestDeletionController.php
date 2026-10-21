@@ -25,7 +25,7 @@ class GdprRequestDeletionController
 
         return response()->json([
             'status' => 'success',
-            'message' => sprintf('Data deletion requested. Your account will be permanently deleted on %s.', $deletionDate->toDateString()),
+            'message' => __('Data deletion requested. Your account will be permanently deleted on :date.', ['date' => $deletionDate->toDateString()]),
             'data' => [
                 'deletion_date' => $deletionDate->toDateString(),
             ],

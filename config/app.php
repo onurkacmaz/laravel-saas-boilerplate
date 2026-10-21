@@ -82,6 +82,23 @@ return [
 
     'fallback_locale' => env('APP_FALLBACK_LOCALE', 'en'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Supported Locales
+    |--------------------------------------------------------------------------
+    |
+    | Languages the API answers in. Each request picks the best one from its
+    | Accept-Language header; e-mails to a user use the language saved on
+    | their account. A locale needs a lang/<locale>.json file (and, for
+    | validation messages, lang/<locale>/validation.php).
+    |
+    */
+
+    'supported_locales' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('APP_SUPPORTED_LOCALES', 'en,tr'))
+    ))),
+
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*

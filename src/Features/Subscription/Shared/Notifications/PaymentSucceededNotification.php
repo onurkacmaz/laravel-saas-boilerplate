@@ -28,14 +28,14 @@ class PaymentSucceededNotification extends Notification implements ShouldQueue
         $currency = strtoupper($this->paymentData['currency'] ?? 'usd');
 
         return (new MailMessage)
-            ->subject('Payment Successful')
-            ->greeting('Hello '.$notifiable->name.',')
-            ->line('Your payment has been processed successfully.')
-            ->line("Amount: {$amount} {$currency}")
-            ->line("Organization: {$this->organization->name}")
-            ->line('Thank you for your business!')
-            ->action('View Dashboard', rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/dashboard')
-            ->line('If you have any questions, please contact our support team.');
+            ->subject(__('Payment Successful'))
+            ->greeting(__('Hello :name,', ['name' => $notifiable->name]))
+            ->line(__('Your payment has been processed successfully.'))
+            ->line(__('Amount: :amount', ['amount' => "{$amount} {$currency}"]))
+            ->line(__('Organization: :organization', ['organization' => $this->organization->name]))
+            ->line(__('Thank you for your business!'))
+            ->action(__('View Dashboard'), rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/dashboard')
+            ->line(__('If you have any questions, please contact our support team.'));
     }
 
     public function toArray(object $notifiable): array

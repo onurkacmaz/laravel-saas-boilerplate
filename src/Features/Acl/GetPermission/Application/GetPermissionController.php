@@ -21,7 +21,7 @@ class GetPermissionController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Permission retrieved successfully',
+            'message' => __('Permission retrieved successfully'),
             'data' => $permission,
         ]);
     }

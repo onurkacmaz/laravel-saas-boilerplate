@@ -28,15 +28,15 @@ class PaymentFailedNotification extends Notification implements ShouldQueue
         $currency = strtoupper($this->paymentData['currency'] ?? 'usd');
 
         return (new MailMessage)
-            ->subject('Payment Failed')
+            ->subject(__('Payment Failed'))
             ->error()
-            ->greeting('Hello '.$notifiable->name.',')
-            ->line('We encountered an issue processing your payment.')
-            ->line("Amount: {$amount} {$currency}")
-            ->line("Organization: {$this->organization->name}")
-            ->line('Please update your payment method to avoid service interruption.')
-            ->action('Update Payment Method', rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/settings/billing')
-            ->line('If you need assistance, please contact our support team.');
+            ->greeting(__('Hello :name,', ['name' => $notifiable->name]))
+            ->line(__('We encountered an issue processing your payment.'))
+            ->line(__('Amount: :amount', ['amount' => "{$amount} {$currency}"]))
+            ->line(__('Organization: :organization', ['organization' => $this->organization->name]))
+            ->line(__('Please update your payment method to avoid service interruption.'))
+            ->action(__('Update Payment Method'), rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/settings/billing')
+            ->line(__('If you need assistance, please contact our support team.'));
     }
 
     public function toArray(object $notifiable): array

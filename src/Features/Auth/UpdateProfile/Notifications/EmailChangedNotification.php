@@ -31,11 +31,11 @@ class EmailChangedNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Your e-mail address was changed')
-            ->greeting("Hello {$this->name}!")
-            ->line("The e-mail address of your account was changed to {$this->newEmail}.")
-            ->line('From now on, sign in and receive e-mails with the new address.')
-            ->line('If you did not make this change, reset your password and contact our support team right away.')
-            ->salutation('Best regards, '.config('app.name'));
+            ->subject(__('Your e-mail address was changed'))
+            ->greeting(__('Hello :name!', ['name' => $this->name]))
+            ->line(__('The e-mail address of your account was changed to :email.', ['email' => $this->newEmail]))
+            ->line(__('From now on, sign in and receive e-mails with the new address.'))
+            ->line(__('If you did not make this change, reset your password and contact our support team right away.'))
+            ->salutation(__('Best regards, :app', ['app' => config('app.name')]));
     }
 }

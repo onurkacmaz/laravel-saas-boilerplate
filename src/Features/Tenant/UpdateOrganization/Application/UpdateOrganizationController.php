@@ -25,7 +25,7 @@ class UpdateOrganizationController
 
         return $organization->toResource(OrganizationResource::class)->additional([
             'status' => 'success',
-            'message' => 'Organization updated successfully',
+            'message' => __('Organization updated successfully'),
         ]);
     }
 }

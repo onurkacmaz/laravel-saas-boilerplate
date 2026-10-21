@@ -30,7 +30,7 @@ class GetAuditsController
 
         return AuditLogResource::collection($auditLogs)->additional([
             'status' => 'success',
-            'message' => 'Audit logs retrieved successfully.',
+            'message' => __('Audit logs retrieved successfully.'),
         ]);
     }
 }

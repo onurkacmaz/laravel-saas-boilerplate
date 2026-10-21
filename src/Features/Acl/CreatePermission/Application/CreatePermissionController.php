@@ -24,7 +24,7 @@ class CreatePermissionController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Permission created successfully',
+            'message' => __('Permission created successfully'),
             'data' => $permission,
         ], Response::HTTP_CREATED);
     }

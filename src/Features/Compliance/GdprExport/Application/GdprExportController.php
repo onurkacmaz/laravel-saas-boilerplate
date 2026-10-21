@@ -22,7 +22,7 @@ class GdprExportController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'User data exported successfully',
+            'message' => __('User data exported successfully'),
             'data' => $data,
         ]);
     }

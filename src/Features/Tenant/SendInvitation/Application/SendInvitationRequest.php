@@ -30,10 +30,10 @@ class SendInvitationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.required' => 'Email address is required.',
-            'email.email' => 'Please provide a valid email address.',
-            'role_id.required' => 'Role is required.',
-            'role_id.exists' => 'The selected role does not exist.',
+            'email.required' => __('Email address is required.'),
+            'email.email' => __('Please provide a valid email address.'),
+            'role_id.required' => __('Role is required.'),
+            'role_id.exists' => __('The selected role does not exist.'),
         ];
     }
 }

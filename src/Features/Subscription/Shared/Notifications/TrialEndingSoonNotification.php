@@ -33,24 +33,24 @@ class TrialEndingSoonNotification extends Notification implements ShouldQueue
     {
         $planName = ($this->subscription->plan?->name ?? config('app.name'));
         $organizationName = ($this->subscription->organization?->name ?? config('app.name'));
-        $trialEndsAt = $this->subscription->trial_ends_at?->format('F j, Y');
+        $trialEndsAt = $this->subscription->trial_ends_at?->isoFormat('LL');
         $daysRemaining = $this->daysRemaining();
         $plansUrl = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/plans';
 
         $message = (new MailMessage)
-            ->subject("Your {$planName} trial is ending soon")
-            ->greeting('Hello!')
-            ->line("Your trial for **{$planName}** on **{$organizationName}** is ending soon.");
+            ->subject(__('Your :plan trial is ending soon', ['plan' => $planName]))
+            ->greeting(__('Hello!'))
+            ->line(__('Your trial for **:plan** on **:organization** is ending soon.', ['plan' => $planName, 'organization' => $organizationName]));
 
         if ($trialEndsAt) {
-            $message->line("Your trial will end on **{$trialEndsAt}** ({$daysRemaining} days remaining).");
+            $message->line(trans_choice('Your trial will end on **:date** (:count day remaining).|Your trial will end on **:date** (:count days remaining).', (int) $daysRemaining, ['date' => $trialEndsAt]));
         }
 
-        $message->line('To continue enjoying all the features without interruption, please add a payment method.')
-            ->action('Update Billing', $plansUrl)
-            ->line("After your trial ends, you'll still have access to the free plan features.")
-            ->line('Questions? Our support team is here to help!')
-            ->salutation('Best regards, '.config('app.name'));
+        $message->line(__('To continue enjoying all the features without interruption, please add a payment method.'))
+            ->action(__('Update Billing'), $plansUrl)
+            ->line(__("After your trial ends, you'll still have access to the free plan features."))
+            ->line(__('Questions? Our support team is here to help!'))
+            ->salutation(__('Best regards, :app', ['app' => config('app.name')]));
 
         return $message;
     }

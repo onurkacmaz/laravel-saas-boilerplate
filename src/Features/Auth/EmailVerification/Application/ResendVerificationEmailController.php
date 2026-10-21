@@ -19,7 +19,7 @@ class ResendVerificationEmailController
         if ($user->hasVerifiedEmail()) {
             return response()->json([
                 'status' => 'success',
-                'message' => 'E-mail address already verified.',
+                'message' => __('E-mail address already verified.'),
             ]);
         }
 
@@ -27,7 +27,7 @@ class ResendVerificationEmailController
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Verification link sent.',
+            'message' => __('Verification link sent.'),
         ], 202);
     }
 }

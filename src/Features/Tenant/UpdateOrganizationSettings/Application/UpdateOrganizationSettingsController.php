@@ -23,7 +23,7 @@ class UpdateOrganizationSettingsController
 
         return $settings->toResource(OrganizationSettingResource::class)->additional([
             'status' => 'success',
-            'message' => 'Organization settings updated successfully.',
+            'message' => __('Organization settings updated successfully.'),
         ]);
     }
 }

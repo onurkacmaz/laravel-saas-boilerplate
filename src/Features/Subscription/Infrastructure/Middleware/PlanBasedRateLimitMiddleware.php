@@ -46,7 +46,7 @@ class PlanBasedRateLimitMiddleware
         $retryAfter = $this->rateLimiter->availableIn($key);
 
         return response()->json([
-            'message' => 'Too many requests. Please try again later.',
+            'message' => __('Too many requests. Please try again later.'),
             'retry_after' => $retryAfter,
             'limit' => $limits['max_attempts'],
             'description' => $limits['description'],
