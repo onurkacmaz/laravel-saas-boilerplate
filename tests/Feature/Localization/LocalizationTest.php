@@ -114,8 +114,13 @@ it('writes invitations in the language of the person who invites', function () {
     Notification::assertSentOnDemand(OrganizationInvitation::class, fn ($notification) => $notification->locale === 'tr');
 });
 
-it('has a Turkish translation for every message of the core', function () {
-    $translations = json_decode(file_get_contents(lang_path('tr.json')), true, flags: JSON_THROW_ON_ERROR);
+it('has a Turkish translation for every message', function () {
+    // The core's lang/tr.json and the files modules load with loadJsonTranslationsFrom().
+    $translations = collect([lang_path(), ...app('translation.loader')->jsonPaths()])
+        ->map(fn (string $directory) => $directory.'/tr.json')
+        ->filter(fn (string $file) => is_file($file))
+        ->flatMap(fn (string $file) => json_decode(file_get_contents($file), true, flags: JSON_THROW_ON_ERROR))
+        ->all();
     $missing = [];
 
     $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path('src')));
