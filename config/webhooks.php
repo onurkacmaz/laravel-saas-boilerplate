@@ -7,10 +7,9 @@ return [
     | Private Network Targets
     |--------------------------------------------------------------------------
     |
-    | Outgoing webhooks are refused when their URL points to a private,
-    | loopback, link-local or otherwise reserved address (SSRF protection).
-    | Enable this only for local development (e.g. to reach a tunnel on
-    | localhost).
+    | Deprecated: use `security.allow_private_urls` (SECURITY_ALLOW_PRIVATE_URLS),
+    | which covers every request to a user-supplied URL. Enabling this one
+    | still allows private targets.
     |
     */
 

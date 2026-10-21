@@ -74,3 +74,5 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `PlanSeeder::extend()` adds limits and features to the seeded plans, and `DatabaseSeeder` runs the seeders tagged `DatabaseSeeder::MODULE_SEEDERS`, so modules no longer edit the core seeders.
 - `GET /api/v1/webhooks/events` lists the events webhooks can subscribe to (`config('webhooks.events')`).
 - `TenantContext::runAs()` and `runWithoutTenant()` run code for another tenant, or none, and restore the previous one.
+- The SSRF guard moved to `Infrastructure\Security` (`UrlGuard`, `SafeUrl` rule) so any feature requesting user-supplied URLs can use it, with a neutral setting: `SECURITY_ALLOW_PRIVATE_URLS`. `WebhookUrlGuard`, `SafeWebhookUrl` and `WEBHOOKS_ALLOW_PRIVATE_URLS` still work and are deprecated.
+- `IpWhitelist::allows()` and the `IpOrCidr` rule match and validate IP allow-lists stored with application data. `ip.whitelist` only takes lists written in the route.

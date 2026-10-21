@@ -21,4 +21,19 @@ return [
         'block_minutes' => (int) env('SECURITY_BLOCK_MINUTES', 1440),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Private Network Targets
+    |--------------------------------------------------------------------------
+    |
+    | Requests to user-supplied URLs (webhooks, and your own features through
+    | UrlGuard and the SafeUrl rule) are refused when the URL points to a
+    | private, loopback, link-local or otherwise reserved address (SSRF
+    | protection). Enable this only for local development (e.g. to reach a
+    | tunnel on localhost). WEBHOOKS_ALLOW_PRIVATE_URLS is its former name.
+    |
+    */
+
+    'allow_private_urls' => (bool) env('SECURITY_ALLOW_PRIVATE_URLS', env('WEBHOOKS_ALLOW_PRIVATE_URLS', false)),
+
 ];
