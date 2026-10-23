@@ -12,8 +12,11 @@ use Features\Subscription\Shared\Events\SubscriptionCanceled;
 use Features\Subscription\Shared\Events\SubscriptionCreated;
 use Features\Subscription\Shared\Events\SubscriptionUpdated;
 use Features\Subscription\Shared\Events\SubscriptionUpgraded;
+use Features\Subscription\Subscribe\Application\AssignFreePlan;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Cashier\Http\Controllers\WebhookController as CashierController;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,6 +25,24 @@ use Throwable;
 #[Group('Stripe Webhooks')]
 class StripeWebhookController extends CashierController
 {
+    /**
+     * Handle a Stripe webhook call.
+     *
+     * Cashier verifies the signature only when STRIPE_WEBHOOK_SECRET is set.
+     * In production an unsigned event could come from anyone, so they are
+     * refused until it is; Stripe retries them for three days meanwhile.
+     */
+    public function handleWebhook(Request $request)
+    {
+        if (! config('cashier.webhook.secret') && app()->isProduction()) {
+            Log::critical('A Stripe webhook was refused: set STRIPE_WEBHOOK_SECRET to the signing secret of the endpoint.');
+
+            return new Response('Webhook signing secret is not configured.', 503);
+        }
+
+        return parent::handleWebhook($request);
+    }
+
     /**
      * Handle customer subscription created.
      */
@@ -105,6 +126,12 @@ class StripeWebhookController extends CashierController
 
         if ($organization && $subscription) {
             event(new SubscriptionCanceled($subscription->fresh(['plan'])));
+        }
+
+        // A paid plan that ended (a downgrade, a cancellation) leaves the
+        // organization on the free plan rather than without any plan.
+        if ($organization && AssignFreePlan::freePlanId()) {
+            app(AssignFreePlan::class)($organization);
         }
 
         return $response;

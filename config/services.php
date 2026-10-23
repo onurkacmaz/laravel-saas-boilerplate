@@ -39,6 +39,8 @@ return [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
+        // Where the Customer Portal sends people back, on FRONTEND_URL.
+        'portal_return_path' => env('STRIPE_PORTAL_RETURN_PATH', '/settings/billing'),
     ],
 
 ];

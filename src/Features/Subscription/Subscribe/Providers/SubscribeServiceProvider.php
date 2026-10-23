@@ -2,16 +2,14 @@
 
 namespace Features\Subscription\Subscribe\Providers;
 
-use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Shared\Events\SubscriptionCreated;
 use Features\Subscription\Shared\Listeners\SendSubscriptionCreatedNotification;
-use Features\Subscription\Subscribe\Application\Subscribe;
-use Features\Subscription\Subscribe\Application\SubscribeHandler;
+use Features\Subscription\Subscribe\Application\AssignFreePlan;
+use Features\Subscription\Subscribe\Commands\AssignFreePlanCommand;
 use Features\Tenant\CreateOrganization\Events\OrganizationCreated;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Infrastructure\Support\LoadsApiRoutes;
-use Throwable;
 
 class SubscribeServiceProvider extends ServiceProvider
 {
@@ -23,29 +21,13 @@ class SubscribeServiceProvider extends ServiceProvider
 
         Event::listen(SubscriptionCreated::class, SendSubscriptionCreatedNotification::class);
         Event::listen(OrganizationCreated::class, static function (OrganizationCreated $event): void {
-            $planId = Plan::query()
-                ->where('is_active', true)
-                ->where('price', 0)
-                ->orderBy('created_at')
-                ->value('id');
-
-            if (! $planId) {
-                return;
-            }
-
-            // A billing hiccup must never prevent an organization from being created.
-            try {
-                app(SubscribeHandler::class)(
-                    command: new Subscribe(
-                        planId: $planId,
-                        useTrial: true,
-                        quantity: 1,
-                        organization: $event->organization
-                    )
-                );
-            } catch (Throwable $exception) {
-                report($exception);
-            }
+            app(AssignFreePlan::class)($event->organization);
         });
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                AssignFreePlanCommand::class,
+            ]);
+        }
     }
 }

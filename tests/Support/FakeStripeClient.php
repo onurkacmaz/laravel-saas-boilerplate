@@ -3,10 +3,12 @@
 namespace Tests\Support;
 
 use RuntimeException;
+use Stripe\BillingPortal\Session as BillingPortalSession;
 use Stripe\Checkout\Session;
 use Stripe\Customer;
 use Stripe\StripeClient;
 use Stripe\Subscription;
+use Stripe\SubscriptionItem;
 
 /**
  * Minimal in-memory stand-in for the Stripe SDK client used by Cashier.
@@ -21,10 +23,17 @@ class FakeStripeClient
 
     public object $subscriptions;
 
+    public object $subscriptionItems;
+
+    public object $billingPortal;
+
     /** @var array<string, list<array>> */
     public array $calls = [];
 
     public ?string $failWith = null;
+
+    /** Thrown as is by the next calls, e.g. a declined card. */
+    public ?\Throwable $throw = null;
 
     public function __construct()
     {
@@ -49,6 +58,22 @@ class FakeStripeClient
             'status' => 'canceled',
             'items' => ['object' => 'list', 'data' => []],
         ]));
+
+        // Periods live on the items: Cashier reads the end of the period from them.
+        $this->subscriptionItems = new FakeStripeService($this, 'subscriptionItems', fn (array $params, ?string $id = null) => SubscriptionItem::constructFrom([
+            'id' => $id ?? 'si_fake',
+            'current_period_start' => now()->startOfDay()->getTimestamp(),
+            'current_period_end' => now()->startOfDay()->addMonth()->getTimestamp(),
+        ]));
+
+        $this->billingPortal = (object) [
+            'sessions' => new FakeStripeService($this, 'billingPortal.sessions', fn (array $params) => BillingPortalSession::constructFrom([
+                'id' => 'bps_test_'.count($this->calls['billingPortal.sessions.create'] ?? []),
+                'url' => 'https://billing.stripe.test/session',
+                'customer' => $params['customer'] ?? null,
+                'return_url' => $params['return_url'] ?? null,
+            ])),
+        ];
     }
 
     public static function install(): self
@@ -64,6 +89,10 @@ class FakeStripeClient
     {
         if ($this->failWith !== null) {
             throw new RuntimeException($this->failWith);
+        }
+
+        if ($this->throw !== null) {
+            throw $this->throw;
         }
 
         $this->calls[$call][] = $arguments;
@@ -114,8 +143,26 @@ class FakeStripeService
         $this->client->record($this->name.'.update', ['id' => $id, ...$params]);
 
         // Scheduling a cancellation keeps the subscription active until the period ends.
+        // A swap answers with the items it leaves on the subscription.
         if ($this->name === 'subscriptions') {
-            return Subscription::constructFrom(['id' => $id, 'status' => 'active', ...$params]);
+            $items = collect($params['items'] ?? [])
+                ->reject(fn (array $item) => ! empty($item['deleted']) || empty($item['price']))
+                ->map(fn (array $item) => [
+                    'id' => $item['id'] ?? 'si_'.$item['price'],
+                    'object' => 'subscription_item',
+                    'price' => ['id' => $item['price'], 'product' => 'prod_fake'],
+                    'quantity' => $item['quantity'] ?? 1,
+                ])
+                ->values()
+                ->all();
+
+            $subscription = ['id' => $id, 'status' => 'active', ...collect($params)->except(['items', 'expand'])->all()];
+
+            if ($items !== []) {
+                $subscription['items'] = ['object' => 'list', 'data' => $items];
+            }
+
+            return Subscription::constructFrom($subscription);
         }
 
         return ($this->factory)($params, $id);
