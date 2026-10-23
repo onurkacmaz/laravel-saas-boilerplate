@@ -8,6 +8,7 @@ use Features\Subscription\GetPlan\Providers\GetPlanServiceProvider;
 use Features\Subscription\GetPlans\Providers\GetPlansServiceProvider;
 use Features\Subscription\GetSubscription\Providers\GetSubscriptionServiceProvider;
 use Features\Subscription\GetUsage\Providers\GetUsageServiceProvider;
+use Features\Subscription\OpenBillingPortal\Providers\OpenBillingPortalServiceProvider;
 use Features\Subscription\Shared\Commands\SendTrialEndingNotifications;
 use Features\Subscription\Shared\Listeners\DispatchOrganizationSubscriptionChanged;
 use Features\Subscription\StripeWebhook\Providers\StripeWebhookServiceProvider;
@@ -30,6 +31,7 @@ class SubscriptionServiceProvider extends ServiceProvider
         $this->app->register(GetSubscriptionServiceProvider::class);
         $this->app->register(SubscribeServiceProvider::class);
         $this->app->register(CancelServiceProvider::class);
+        $this->app->register(OpenBillingPortalServiceProvider::class);
         $this->app->register(StripeWebhookServiceProvider::class);
     }
 

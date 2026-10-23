@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- `POST /api/v1/subscriptions/portal` opens the Stripe Customer Portal, where admins update their payment method, download invoices and manage the subscription. `STRIPE_PORTAL_RETURN_PATH` sets the page it returns to.
+- `php artisan subscriptions:assign-free-plan` (`--dry-run` lists them first) puts organizations without an active plan on the free plan. An organization created while no free plan existed now leaves a warning in the log, and a failed free-plan subscription can no longer abort the registration's transaction.
+- `POST /api/v1/subscriptions` answers with an `action`: `checkout`, `activated` or `scheduled`.
+
+### Changed
+- Moving between paid plans (monthly to yearly, a bigger plan) changes the price of the Stripe subscription in place, prorated, instead of a second checkout and the old subscription being canceled outright, which lost the unused part of the old plan. A declined card leaves the plan unchanged (422). Choosing the current plan again while it is scheduled to end resumes it.
+- Moving from a paid plan to the free plan cancels the paid subscription at the end of its period instead of at once, and an organization whose paid subscription ends is put back on the free plan. If Stripe cannot be reached, the plan no longer appears switched while Stripe keeps charging: the request fails (502) and nothing changes.
+
+### Fixed
+- `subscription_items` lacked the `meter_id` and `meter_event_name` columns Cashier 16 writes when a subscription changes price.
+
+### Security
+- Unsigned Stripe webhooks are refused in production (503, logged) until `STRIPE_WEBHOOK_SECRET` is set. They were accepted from anyone before.
+
 ### Removed
 - The deploy job of the CI workflow (a Laravel Cloud deploy hook). Laravel Cloud deploys on push by itself, and an application built on the boilerplate has its own deployment.
 

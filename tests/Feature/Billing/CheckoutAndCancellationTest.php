@@ -1,12 +1,16 @@
 <?php
 
+use App\Models\Organization;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
+use Features\Subscription\Shared\Events\SubscriptionUpgraded;
 use Features\Subscription\Shared\Notifications\SubscriptionCanceledNotification;
 use Features\Subscription\Subscribe\Application\Subscribe;
 use Features\Subscription\Subscribe\Application\SubscribeHandler;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
+use Stripe\Exception\CardException;
 use Tests\Support\FakeStripeClient;
 
 uses(RefreshDatabase::class);
@@ -17,6 +21,25 @@ beforeEach(function (): void {
     [$this->admin, $this->organization] = userInOrganization('admin');
     $this->plan = Plan::factory()->create(['price' => 2900, 'trial_days' => 14, 'stripe_price_id' => 'price_pro']);
 });
+
+function paidSubscription(Organization $organization, Plan $plan): Subscription
+{
+    $subscription = Subscription::factory()->create([
+        'organization_id' => $organization->id,
+        'stripe_id' => 'sub_paid',
+        'stripe_price' => $plan->stripe_price_id,
+        'plan_id' => $plan->id,
+        'quantity' => 1,
+    ]);
+    $subscription->items()->create([
+        'stripe_id' => 'si_paid',
+        'stripe_product' => 'prod_pro',
+        'stripe_price' => $plan->stripe_price_id,
+        'quantity' => 1,
+    ]);
+
+    return $subscription;
+}
 
 function subscribeTo(Plan $plan, array $extra = [])
 {
@@ -60,8 +83,11 @@ it('only grants the trial once per organization', function (): void {
     expect($this->stripe->lastCall('checkout.sessions.create')['subscription_data'])->not->toHaveKey('trial_end');
 });
 
-it('passes the current subscription so it can be replaced after checkout', function (): void {
-    $current = Subscription::factory()->create(['organization_id' => $this->organization->id]);
+it('passes the current free subscription so it can be replaced after checkout', function (): void {
+    $current = Subscription::factory()->create([
+        'organization_id' => $this->organization->id,
+        'stripe_id' => Subscription::makeLocalStripeId(),
+    ]);
 
     subscribeTo($this->plan)->assertCreated();
 
@@ -93,14 +119,88 @@ it('hides payment provider errors from the client', function (): void {
     expect($response->getContent())->not->toContain('sk_live');
 });
 
-it('switches to a free plan by cancelling the current subscription', function (): void {
-    $free = Plan::factory()->create(['price' => 0, 'stripe_price_id' => null]);
-    $paid = Subscription::factory()->create(['organization_id' => $this->organization->id, 'stripe_id' => 'sub_paid']);
+it('switches paid plans in place, so Stripe prorates the change', function (): void {
+    Event::fake([SubscriptionUpgraded::class]);
+    $yearly = Plan::factory()->create(['price' => 29000, 'stripe_price_id' => 'price_pro_yearly']);
+    $this->organization->forceFill(['stripe_id' => 'cus_1'])->save();
+    $current = paidSubscription($this->organization, $this->plan);
 
-    subscribeTo($free)->assertCreated();
+    subscribeTo($yearly)
+        ->assertCreated()
+        ->assertJsonPath('data.action', 'activated')
+        ->assertJsonPath('data.checkout_url', 'https://app.example.test/subscriptions/success?session_id=sub_paid');
 
-    expect($this->stripe->lastCall('subscriptions.cancel')['id'])->toBe('sub_paid')
-        ->and($paid->fresh()->stripe_status)->toBe('canceled')
+    $update = $this->stripe->lastCall('subscriptions.update');
+
+    expect($this->stripe->lastCall('checkout.sessions.create'))->toBeNull()
+        ->and($this->stripe->lastCall('subscriptions.cancel'))->toBeNull()
+        ->and($update['id'])->toBe('sub_paid')
+        ->and($update['payment_behavior'])->toBe('error_if_incomplete')
+        ->and($update['cancel_at_period_end'])->toBeFalse()
+        ->and(collect($update['items'])->pluck('price')->filter()->values()->all())->toBe(['price_pro_yearly'])
+        ->and($current->fresh()->plan_id)->toBe($yearly->id)
+        ->and($current->fresh()->stripe_price)->toBe('price_pro_yearly');
+
+    Event::assertDispatched(SubscriptionUpgraded::class, fn (SubscriptionUpgraded $event) => $event->oldPlan->is($this->plan) && $event->newPlan->is($yearly));
+});
+
+it('keeps the plan when the card is declined for the change', function (): void {
+    $yearly = Plan::factory()->create(['price' => 29000, 'stripe_price_id' => 'price_pro_yearly']);
+    $this->organization->forceFill(['stripe_id' => 'cus_1'])->save();
+    $current = paidSubscription($this->organization, $this->plan);
+    $this->stripe->throw = CardException::factory('Your card was declined.', 402, stripeCode: 'card_declined');
+
+    subscribeTo($yearly)
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.plan_id.0', 'Your card was declined. Update your payment method and try again.');
+
+    expect($current->fresh()->plan_id)->toBe($this->plan->id)
+        ->and($current->fresh()->stripe_price)->toBe('price_pro');
+});
+
+it('resumes a paid plan scheduled to end when it is chosen again', function (): void {
+    $this->organization->forceFill(['stripe_id' => 'cus_1'])->save();
+    $paid = paidSubscription($this->organization, $this->plan);
+    $paid->forceFill(['ends_at' => now()->addWeek()])->save();
+
+    subscribeTo($this->plan)->assertCreated()->assertJsonPath('data.action', 'activated');
+
+    expect($this->stripe->lastCall('subscriptions.update')['cancel_at_period_end'])->toBeFalse()
+        ->and($this->stripe->lastCall('checkout.sessions.create'))->toBeNull()
+        ->and($paid->fresh()->ends_at)->toBeNull();
+});
+
+it('moves to a free plan at the end of the paid period', function (): void {
+    $free = Plan::factory()->create(['price' => 0, 'stripe_price_id' => null, 'trial_days' => 0]);
+    $this->organization->forceFill(['stripe_id' => 'cus_1'])->save();
+    $paid = paidSubscription($this->organization, $this->plan);
+
+    subscribeTo($free)
+        ->assertCreated()
+        ->assertJsonPath('data.action', 'scheduled');
+
+    expect($this->stripe->lastCall('subscriptions.update'))->toMatchArray(['id' => 'sub_paid', 'cancel_at_period_end' => true])
+        ->and($this->stripe->lastCall('subscriptions.cancel'))->toBeNull()
+        ->and($paid->fresh()->onGracePeriod())->toBeTrue()
+        ->and($this->organization->activeSubscription()->plan_id)->toBe($this->plan->id);
+
+    // Asking again changes nothing.
+    $this->stripe->calls = [];
+    subscribeTo($free)->assertCreated()->assertJsonPath('data.action', 'scheduled');
+    expect($this->stripe->calls)->toBe([]);
+
+    // When Stripe ends the paid subscription, the free plan takes over.
+    $this->postJson('/stripe/webhook', [
+        'type' => 'customer.subscription.deleted',
+        'data' => ['object' => [
+            'id' => 'sub_paid',
+            'customer' => 'cus_1',
+            'status' => 'canceled',
+            'items' => ['data' => [['id' => 'si_paid', 'price' => ['id' => 'price_pro', 'product' => 'prod_pro']]]],
+        ]],
+    ])->assertOk();
+
+    expect($paid->fresh()->stripe_status)->toBe('canceled')
         ->and($this->organization->activeSubscription()->plan_id)->toBe($free->id);
 });
 

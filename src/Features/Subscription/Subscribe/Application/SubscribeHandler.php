@@ -6,10 +6,15 @@ use App\Models\Organization;
 use Exception;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription as SubscriptionModel;
+use Features\Subscription\Shared\Events\SubscriptionCanceled;
 use Features\Subscription\Shared\Events\SubscriptionCreated;
+use Features\Subscription\Shared\Events\SubscriptionUpdated;
+use Features\Subscription\Shared\Events\SubscriptionUpgraded;
 use Illuminate\Validation\ValidationException;
 use Infrastructure\Tenant\TenantContext;
 use InvalidArgumentException;
+use Stripe\Exception\CardException;
+use Stripe\Subscription as StripeSubscription;
 use Throwable;
 
 class SubscribeHandler
@@ -48,7 +53,14 @@ class SubscribeHandler
         // grant a new free trial every time.
         $useTrial = $command->useTrial && $plan->trial_days > 0 && ! $this->hasUsedTrial($organization);
 
+        $paidSubscription = $this->paidSubscription($activeSubscription);
+
         if ($plan->isFree()) {
+            // A paid period is never cut short: the free plan takes over when it ends.
+            if ($paidSubscription) {
+                return $this->downgradeAtPeriodEnd($organization, $paidSubscription);
+            }
+
             return $this->subscribeToFreePlan(
                 organization: $organization,
                 plan: $plan,
@@ -66,6 +78,13 @@ class SubscribeHandler
         }
 
         $stripePrice = $plan->getStripePriceId();
+
+        // Switching between paid plans changes the price of the subscription in
+        // place, so Stripe prorates the unused time instead of a second checkout
+        // starting a new subscription and the old one being canceled outright.
+        if ($paidSubscription) {
+            return $this->changePaidPlan($organization, $paidSubscription, $plan, $stripePrice);
+        }
 
         $metadata = array_filter([
             'organization_id' => $organization->id,
@@ -141,14 +160,90 @@ class SubscribeHandler
 
         event(new SubscriptionCreated($subscription->fresh(['plan'])));
 
-        $successUrl = sprintf('%s/subscriptions/success?session_id=%s', $this->frontendUrl(), $localStripeId);
-
         return new CheckoutSession(
             id: $localStripeId,
-            url: $successUrl,
+            url: $this->successUrl($localStripeId),
             expiresAt: now()->addMinutes(10)->getTimestamp(),
-            customerId: $organization->stripe_id
+            customerId: $organization->stripe_id,
+            action: CheckoutSession::ACTION_ACTIVATED,
         );
+    }
+
+    /**
+     * The organization's running Stripe subscription, if it pays for one.
+     */
+    private function paidSubscription(?SubscriptionModel $subscription): ?SubscriptionModel
+    {
+        if (! $subscription || $subscription->isLocal()) {
+            return null;
+        }
+
+        $running = in_array($subscription->stripe_status, [StripeSubscription::STATUS_ACTIVE, StripeSubscription::STATUS_TRIALING], true);
+
+        return $running ? $subscription : null;
+    }
+
+    /**
+     * Cancel the paid subscription at the end of its period. When Stripe ends
+     * it, the webhook puts the organization on the free plan.
+     */
+    private function downgradeAtPeriodEnd(Organization $organization, SubscriptionModel $subscription): CheckoutSession
+    {
+        if (! $subscription->onGracePeriod()) {
+            $subscription->cancel();
+
+            event(new SubscriptionCanceled($subscription->fresh(['plan'])));
+        }
+
+        return new CheckoutSession(
+            id: $subscription->stripe_id,
+            url: $this->successUrl($subscription->stripe_id),
+            expiresAt: now()->addMinutes(10)->getTimestamp(),
+            customerId: $organization->stripe_id,
+            action: CheckoutSession::ACTION_SCHEDULED,
+        );
+    }
+
+    /**
+     * Move a paid subscription to another paid plan. Stripe prorates the
+     * change; when it bills at once (another interval) and the payment fails,
+     * nothing changes.
+     *
+     * @throws ValidationException
+     */
+    private function changePaidPlan(Organization $organization, SubscriptionModel $subscription, Plan $plan, string $stripePrice): CheckoutSession
+    {
+        $oldPlan = $subscription->plan;
+
+        try {
+            $subscription->errorIfPaymentFails()->swap($stripePrice);
+        } catch (CardException) {
+            throw ValidationException::withMessages([
+                'plan_id' => __('Your card was declined. Update your payment method and try again.'),
+            ]);
+        }
+
+        $subscription->forceFill(['plan_id' => $plan->id])->save();
+        $subscription = $subscription->fresh(['plan']);
+
+        event(new SubscriptionUpdated($subscription));
+
+        if ($oldPlan && $plan->price > $oldPlan->price) {
+            event(new SubscriptionUpgraded($subscription, $oldPlan, $plan));
+        }
+
+        return new CheckoutSession(
+            id: $subscription->stripe_id,
+            url: $this->successUrl($subscription->stripe_id),
+            expiresAt: now()->addMinutes(10)->getTimestamp(),
+            customerId: $organization->stripe_id,
+            action: CheckoutSession::ACTION_ACTIVATED,
+        );
+    }
+
+    private function successUrl(string $sessionId): string
+    {
+        return sprintf('%s/subscriptions/success?session_id=%s', $this->frontendUrl(), $sessionId);
     }
 
     private function frontendUrl(): string

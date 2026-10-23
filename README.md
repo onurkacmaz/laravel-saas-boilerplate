@@ -288,11 +288,24 @@ Tests check that every message, in the core and in modules, has a Turkish transl
 
 1. Configure `STRIPE_KEY`, `STRIPE_SECRET` and `STRIPE_WEBHOOK_SECRET`.
 2. Seed the plans, setting `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY` for the paid ones.
-3. Point a Stripe webhook to `POST /stripe/webhook`. Signatures are verified when the secret is set.
-4. Call `POST /api/v1/subscriptions` with a `plan_id`:
-   - Paid plans return a Stripe Checkout URL.
-   - Free plans are activated immediately.
-   - New organizations are subscribed to the free plan automatically when one exists.
+3. Point a Stripe webhook to `POST /stripe/webhook`. Signatures are verified with `STRIPE_WEBHOOK_SECRET`; in
+   production, webhooks are refused (503, logged) until it is set.
+4. Call `POST /api/v1/subscriptions` with a `plan_id`. The response's `action` says what happened:
+   - `checkout`: the first paid plan. `checkout_url` is the Stripe Checkout page.
+   - `activated`: a free plan is active at once; a paid organization moving to another paid plan has its
+     subscription's price changed in place, prorated by Stripe. When the change bills at once (another interval)
+     and the card is declined, nothing changes and the answer is a 422.
+   - `scheduled`: a paid organization moving to the free plan keeps its plan until the end of the paid period.
+   - `checkout_url` is the frontend's success page for the last two.
+   - New organizations are subscribed to the free plan automatically when one exists. When none does (the
+     plans were seeded after the first sign-ups), a warning is logged; seed the plans, then run
+     `php artisan subscriptions:assign-free-plan` (`--dry-run` lists them first) to put every organization
+     without an active plan on the free plan. An organization whose paid subscription ends (canceled, downgraded,
+     unpaid) is put back on the free plan.
+5. `POST /api/v1/subscriptions/portal` returns the address of a Stripe Customer Portal session, where admins
+   update the payment method, download invoices and manage the subscription. It sends them back to
+   `FRONTEND_URL` + `STRIPE_PORTAL_RETURN_PATH` (`/settings/billing`). Configure the portal's features in the
+   Stripe Dashboard (Settings › Billing › Customer portal).
 
 ### Plan limits for your own resources
 
@@ -385,7 +398,8 @@ Each contributor adds one section, named by its `section()` method. Names alread
 | `DOCS_URL` | Documentation linked from the welcome e-mail. Empty by default: the e-mail has no documentation link. |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed frontend origins. |
 | `DB_*`, `REDIS_*`, `QUEUE_CONNECTION`, `CACHE_STORE` | Infrastructure settings. |
-| `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | Stripe credentials. |
+| `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | Stripe credentials. The webhook secret is required in production. |
+| `STRIPE_PORTAL_RETURN_PATH` | Page of the frontend the Stripe Customer Portal returns to (`/settings/billing`). |
 | `STRIPE_PRODUCT_PRO`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` | Stripe identifiers used by the plan seeder. |
 | `AUTH_TOKEN_LIFETIME` | API token lifetime in minutes. |
 | `JWT_SECRET`, `JWT_TTL` | Signing key (defaults to `APP_KEY`) and lifetime in minutes of the 2FA challenge tokens. |

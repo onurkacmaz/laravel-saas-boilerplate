@@ -73,7 +73,7 @@ it('marks subscriptions canceled locally when Stripe refuses to cancel them', fu
     expect($subscription->fresh()->stripe_status)->toBe('canceled');
 });
 
-it('falls back to a local cancellation when switching to a free plan fails remotely', function (): void {
+it('keeps the paid plan when Stripe cannot schedule the switch to a free plan', function (): void {
     $stripe = FakeStripeClient::install();
     [$admin, $organization] = userInOrganization('admin');
     $organization->forceFill(['stripe_id' => 'cus_1'])->save();
@@ -81,12 +81,15 @@ it('falls back to a local cancellation when switching to a free plan fails remot
     $free = Plan::factory()->create(['price' => 0, 'stripe_price_id' => null]);
     $stripe->failWith = 'Stripe is down';
 
+    // Canceling only locally would show the free plan while Stripe keeps charging.
     $this->actingAs($admin, 'sanctum')
         ->withHeader('X-Organization-Id', $organization->id)
         ->postJson('/api/v1/subscriptions', ['plan_id' => $free->id])
-        ->assertCreated();
+        ->assertStatus(502);
 
-    expect($paid->fresh()->stripe_status)->toBe('canceled');
+    expect($paid->fresh()->stripe_status)->toBe('active')
+        ->and($paid->fresh()->ends_at)->toBeNull()
+        ->and($organization->activeSubscription()->is($paid))->toBeTrue();
 });
 
 it('creates organizations even when the free plan subscription fails', function (): void {

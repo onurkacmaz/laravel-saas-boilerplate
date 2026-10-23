@@ -145,3 +145,53 @@ it('cancels previous subscription when metadata references an active subscriptio
     expect($fakeStripeClient->cancelled)->toHaveCount(1)
         ->and($fakeStripeClient->cancelled[0]['id'])->toBe('sub_prev_123');
 });
+
+it('refuses unsigned webhooks in production', function (): void {
+    config(['cashier.webhook.secret' => null]);
+    app()->detectEnvironment(fn () => 'production');
+
+    $this->postJson('/stripe/webhook', ['type' => 'customer.subscription.deleted', 'data' => ['object' => []]])
+        ->assertStatus(503);
+});
+
+it('accepts unsigned webhooks outside production, for local development', function (): void {
+    config(['cashier.webhook.secret' => null]);
+
+    $this->postJson('/stripe/webhook', ['type' => 'unknown.event', 'data' => ['object' => []]])->assertOk();
+});
+
+it('falls back to the free plan only when nothing else is active', function (): void {
+    $free = Plan::factory()->create(['price' => 0, 'stripe_price_id' => null, 'trial_days' => 0]);
+    $pro = Plan::factory()->create(['price' => 2900, 'stripe_price_id' => 'price_pro']);
+    $organization = Organization::factory()->create(['stripe_id' => 'cus_fallback']);
+    $ended = Subscription::factory()->create(['organization_id' => $organization->id, 'stripe_id' => 'sub_old', 'plan_id' => $pro->id]);
+    $replacement = Subscription::factory()->create(['organization_id' => $organization->id, 'stripe_id' => 'sub_new', 'plan_id' => $pro->id]);
+
+    $deleted = fn (string $id) => [
+        'type' => 'customer.subscription.deleted',
+        'data' => ['object' => ['id' => $id, 'customer' => 'cus_fallback', 'status' => 'canceled', 'items' => ['data' => []]]],
+    ];
+
+    // The old subscription was replaced by a new paid one: no free plan.
+    (new StripeWebhookController)->handleCustomerSubscriptionDeleted($deleted('sub_old'));
+
+    expect($ended->fresh()->stripe_status)->toBe('canceled')
+        ->and($organization->activeSubscription()->is($replacement))->toBeTrue();
+
+    // The last paid subscription ends: the free plan takes over.
+    (new StripeWebhookController)->handleCustomerSubscriptionDeleted($deleted('sub_new'));
+
+    expect($organization->activeSubscription()->plan_id)->toBe($free->id);
+});
+
+it('leaves organizations without a plan when there is no free plan', function (): void {
+    $organization = Organization::factory()->create(['stripe_id' => 'cus_nofree']);
+    Subscription::factory()->create(['organization_id' => $organization->id, 'stripe_id' => 'sub_only']);
+
+    (new StripeWebhookController)->handleCustomerSubscriptionDeleted([
+        'type' => 'customer.subscription.deleted',
+        'data' => ['object' => ['id' => 'sub_only', 'customer' => 'cus_nofree', 'status' => 'canceled', 'items' => ['data' => []]]],
+    ]);
+
+    expect($organization->activeSubscription())->toBeNull();
+});

@@ -13,7 +13,7 @@ uses(RefreshDatabase::class);
 
 /**
  * Free plan on creation → upgrade through Stripe Checkout → Stripe confirms
- * the subscription → payment fails → subscription ends.
+ * the subscription → payment fails → subscription ends → free plan again.
  */
 it('moves an organization from the free plan to a paid plan and back', function (): void {
     Notification::fake();
@@ -78,7 +78,7 @@ it('moves an organization from the free plan to a paid plan and back', function 
 
     Notification::assertSentTo($owner, PaymentFailedNotification::class);
 
-    // 5. Stripe gives up and deletes the subscription: no active plan anymore.
+    // 5. Stripe gives up and deletes the subscription: back on the free plan.
     $this->postJson('/stripe/webhook', [
         'type' => 'customer.subscription.deleted',
         'data' => ['object' => [
@@ -90,6 +90,6 @@ it('moves an organization from the free plan to a paid plan and back', function 
         ]],
     ])->assertOk();
 
-    $asOwner()->getJson('/api/v1/subscriptions')->assertNotFound();
-    $asOwner()->getJson('/api/v1/usage/limits')->assertJsonPath('data.users', 5);
+    $asOwner()->getJson('/api/v1/subscriptions')->assertOk()->assertJsonPath('data.plan.id', $free->id);
+    $asOwner()->getJson('/api/v1/usage/limits')->assertJsonPath('data.users', 1);
 });
