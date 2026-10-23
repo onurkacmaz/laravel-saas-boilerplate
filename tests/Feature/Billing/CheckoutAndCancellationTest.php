@@ -83,6 +83,18 @@ it('only grants the trial once per organization', function (): void {
     expect($this->stripe->lastCall('checkout.sessions.create')['subscription_data'])->not->toHaveKey('trial_end');
 });
 
+it('grants the plan trial when the request does not mention it', function (): void {
+    subscribeTo($this->plan)->assertCreated();
+
+    expect($this->stripe->lastCall('checkout.sessions.create')['subscription_data'])->toHaveKey('trial_end');
+});
+
+it('skips the trial when the request opts out', function (): void {
+    subscribeTo($this->plan, ['use_trial' => false])->assertCreated();
+
+    expect($this->stripe->lastCall('checkout.sessions.create')['subscription_data'])->not->toHaveKey('trial_end');
+});
+
 it('passes the current free subscription so it can be replaced after checkout', function (): void {
     $current = Subscription::factory()->create([
         'organization_id' => $this->organization->id,
