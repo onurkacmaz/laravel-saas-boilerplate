@@ -290,7 +290,8 @@ Tests check that every message, in the core and in modules, has a Turkish transl
 2. Seed the plans, setting `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY` for the paid ones.
 3. Point a Stripe webhook to `POST /stripe/webhook`. Signatures are verified with `STRIPE_WEBHOOK_SECRET`; in
    production, webhooks are refused (503, logged) until it is set.
-4. Call `POST /api/v1/subscriptions` with a `plan_id`. The response's `action` says what happened:
+4. Call `POST /api/v1/subscriptions` with a `plan_id`. The plan's trial (`trial_days`) applies once per organization;
+   send `use_trial: false` to skip it. The response's `action` says what happened:
    - `checkout`: the first paid plan. `checkout_url` is the Stripe Checkout page.
    - `activated`: a free plan is active at once; a paid organization moving to another paid plan has its
      subscription's price changed in place, prorated by Stripe. When the change bills at once (another interval)

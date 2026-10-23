@@ -22,7 +22,8 @@ class SubscribeController
             $session = $handler(
                 command: new Subscribe(
                     planId: (string) $request->validated('plan_id'),
-                    useTrial: $request->boolean('use_trial'),
+                    // The plan's trial applies unless the client opts out with use_trial=false.
+                    useTrial: $request->boolean('use_trial', true),
                     quantity: $request->filled('quantity') ? $request->integer('quantity') : null,
                     organization: TenantContext::getOrganization()
                 )

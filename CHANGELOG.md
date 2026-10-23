@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `POST /api/v1/subscriptions` answers with an `action`: `checkout`, `activated` or `scheduled`.
 
 ### Changed
+- `POST /api/v1/subscriptions` grants the plan's trial unless the request sends `use_trial: false`. A client that left `use_trial` out got no trial, although the plan has one.
 - Moving between paid plans (monthly to yearly, a bigger plan) changes the price of the Stripe subscription in place, prorated, instead of a second checkout and the old subscription being canceled outright, which lost the unused part of the old plan. A declined card leaves the plan unchanged (422). Choosing the current plan again while it is scheduled to end resumes it.
 - Moving from a paid plan to the free plan cancels the paid subscription at the end of its period instead of at once, and an organization whose paid subscription ends is put back on the free plan. If Stripe cannot be reached, the plan no longer appears switched while Stripe keeps charging: the request fails (502) and nothing changes.
 
