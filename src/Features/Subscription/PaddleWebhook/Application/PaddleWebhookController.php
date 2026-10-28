@@ -217,7 +217,10 @@ class PaddleWebhookController extends WebhookController
      */
     private function payment(array $data): array
     {
-        $total = (int) ($data['details']['totals']['total'] ?? 0);
+        // grand_total is what was charged: the total less the credit of a
+        // prorated plan change.
+        $totals = $data['details']['totals'] ?? [];
+        $total = (int) ($totals['grand_total'] ?? $totals['total'] ?? 0);
 
         return [
             'id' => $data['id'] ?? null,

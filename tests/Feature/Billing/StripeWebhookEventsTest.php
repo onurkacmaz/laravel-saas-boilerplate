@@ -180,6 +180,14 @@ it('notifies the owner about successful invoice payments', function (): void {
     Notification::assertSentTo($this->organization->owner, PaymentSucceededNotification::class);
 });
 
+it('sends no payment e-mail for the $0 invoice that starts a trial', function (): void {
+    Notification::fake();
+
+    $this->postJson('/stripe/webhook', invoicePayload('invoice.payment_succeeded', $this->organization, ['amount_due' => 0, 'amount_paid' => 0]))->assertOk();
+
+    Notification::assertNotSentTo($this->organization->owner, PaymentSucceededNotification::class);
+});
+
 it('reports standalone payment intents but not those of invoices', function (): void {
     Event::fake([PaymentSucceeded::class, PaymentFailed::class]);
 
