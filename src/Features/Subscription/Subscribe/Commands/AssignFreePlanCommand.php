@@ -22,12 +22,22 @@ class AssignFreePlanCommand extends Command
             return self::FAILURE;
         }
 
+        // Free plans and Stripe subscriptions are filtered in the query; a
+        // subscription of another provider (Paddle) lives in its own table.
         $organizations = Organization::query()
             ->whereDoesntHave('subscriptions', fn (Builder $query) => $query->whereIn('stripe_status', ['active', 'trialing']));
 
         if ($this->option('dry-run')) {
-            $organizations->orderBy('name')->each(fn (Organization $organization) => $this->line("{$organization->id}  {$organization->name}"));
-            $this->info("{$organizations->count()} organization(s) have no active plan.");
+            $count = 0;
+
+            $organizations->orderBy('name')->each(function (Organization $organization) use (&$count): void {
+                if (! $organization->hasActiveSubscription()) {
+                    $this->line("{$organization->id}  {$organization->name}");
+                    $count++;
+                }
+            });
+
+            $this->info("$count organization(s) have no active plan.");
 
             return self::SUCCESS;
         }
@@ -37,6 +47,10 @@ class AssignFreePlanCommand extends Command
 
         // Keyset pagination: subscribing removes organizations from the query.
         $organizations->lazyById()->each(function (Organization $organization) use ($assign, &$assigned, &$failed): void {
+            if ($organization->hasActiveSubscription()) {
+                return;
+            }
+
             if ($assign($organization)) {
                 $assigned++;
             } else {

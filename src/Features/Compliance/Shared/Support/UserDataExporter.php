@@ -5,6 +5,7 @@ namespace Features\Compliance\Shared\Support;
 use App\Models\Role;
 use App\Models\User;
 use Features\Compliance\Shared\Contracts\ExportsUserData;
+use Features\Subscription\Shared\Contracts\BillingGateway;
 use LogicException;
 
 /**
@@ -25,7 +26,7 @@ final class UserDataExporter
 
     private function core(User $user): array
     {
-        $user->loadMissing(['organizations', 'ownedOrganizations.subscriptions.plan', 'tokens']);
+        $user->loadMissing(['organizations', 'ownedOrganizations', 'tokens']);
 
         $roleNames = Role::query()
             ->withoutOrganization()
@@ -56,10 +57,10 @@ final class UserDataExporter
                 'name' => $org->name,
                 'created_at' => $org->created_at?->toIso8601String(),
             ])->values()->toArray(),
-            'subscriptions' => $user->ownedOrganizations->flatMap(fn ($org) => $org->subscriptions->map(fn ($sub) => [
+            'subscriptions' => $user->ownedOrganizations->flatMap(fn ($org) => $org->subscriptions()->local()->get()->concat(app(BillingGateway::class)->subscriptions($org))->map(fn ($sub) => [
                 'organization' => $org->name,
                 'plan' => $sub->plan?->name,
-                'status' => $sub->stripe_status,
+                'status' => $sub->providerStatus(),
                 'started_at' => $sub->starts_at?->toIso8601String(),
                 'ends_at' => $sub->ends_at?->toIso8601String(),
             ]))->values()->toArray(),

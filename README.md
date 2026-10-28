@@ -31,7 +31,7 @@ SaaS Boilerplate packages the building blocks that every multi-tenant subscripti
 
 - tenant-aware JSON API endpoints,
 - organization-scoped roles and permissions,
-- Stripe billing through Laravel Cashier,
+- Stripe or Paddle billing through Laravel Cashier and Cashier Paddle,
 - compliance and security tooling.
 
 Each capability lives in its own slice under `src/Features`. Shared infrastructure, such as tenancy, rate limiting and security middleware, lives under `src/Infrastructure`.
@@ -59,10 +59,10 @@ The project is maintained as a reference implementation: fork it, adapt it to yo
 - Brute-force protection on login, registration, password reset and the 2FA challenge.
 
 **Billing**
-- Stripe Checkout through Laravel Cashier, plus free plans that need no Stripe account.
+- Stripe (Laravel Cashier) or Paddle (Laravel Cashier Paddle) checkout, picked with `BILLING_PROVIDER`, plus free plans that need no payment provider.
 - Trials, granted once per organization.
 - Plan-based resource limits (`limit:<resource>` middleware) and plan-based API rate limiting (`rate.limit` middleware). Rate-limit headers are included in responses.
-- A Stripe webhook handler that keeps local subscriptions and plans in sync.
+- Stripe and Paddle webhook handlers that keep local subscriptions and plans in sync.
 - Payment, subscription and trial notifications.
 
 **Security & compliance**
@@ -286,16 +286,51 @@ Tests check that every message, in the core and in modules, has a Turkish transl
 
 ## Billing
 
+Paid plans are billed with one payment provider, set with `BILLING_PROVIDER`:
+
+- `stripe` (default): Stripe through [Laravel Cashier](https://laravel.com/docs/billing).
+- `paddle`: Paddle Billing through [Laravel Cashier Paddle](https://laravel.com/docs/cashier-paddle). Paddle is the
+  merchant of record: it collects sales taxes and VAT, and it accepts sellers from countries Stripe does not serve.
+
+Pick one before the first paid subscription: subscriptions are not moved from one provider to the other. Free plans
+never reach a provider. The rest of the application reads subscriptions through
+`Features\Subscription\Shared\Contracts\BillingSubscription` and talks to the provider through
+`BillingGateway`, so limits, middleware, events and outgoing webhooks work the same with both.
+
+### Stripe
+
 1. Configure `STRIPE_KEY`, `STRIPE_SECRET` and `STRIPE_WEBHOOK_SECRET`.
 2. Seed the plans, setting `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_PRO_YEARLY` for the paid ones.
 3. Point a Stripe webhook to `POST /stripe/webhook`. Signatures are verified with `STRIPE_WEBHOOK_SECRET`; in
    production, webhooks are refused (503, logged) until it is set.
-4. Call `POST /api/v1/subscriptions` with a `plan_id`. The plan's trial (`trial_days`) applies once per organization;
+4. Configure the Customer Portal's features in the Stripe Dashboard (Settings › Billing › Customer portal).
+
+### Paddle
+
+1. Set `BILLING_PROVIDER=paddle`, then `PADDLE_API_KEY`, `PADDLE_CLIENT_SIDE_TOKEN` and `PADDLE_WEBHOOK_SECRET`
+   (Paddle › Developer tools). `PADDLE_SANDBOX=true` uses the sandbox.
+2. Paddle sets trials on prices, not on checkouts. For each paid plan, create a price without a trial and, if the plan
+   has `trial_days`, a second one with the trial. Seed the plans with `PADDLE_PRICE_PRO_MONTHLY`,
+   `PADDLE_PRICE_PRO_YEARLY` and `PADDLE_TRIAL_PRICE_PRO_MONTHLY`, `PADDLE_TRIAL_PRICE_PRO_YEARLY`.
+3. Set the default payment link (Paddle › Checkout › Checkout settings) to `APP_URL/paddle/checkout`, and have its
+   domain approved. That page opens Paddle Checkout with Paddle.js, then sends the customer to the frontend's success
+   page.
+4. Create a notification destination for `POST /paddle/webhook` with the `subscription.*` and `transaction.*`
+   events. Its secret key is `PADDLE_WEBHOOK_SECRET`; in production, webhooks are refused (503, logged) until it is
+   set.
+
+Paddle subscriptions live in the `paddle_*` tables of Cashier Paddle, next to Cashier's `subscriptions` table that
+holds the free plans (and the Stripe subscriptions). Cashier Paddle's `Billable` is on `PaddleBillable`, a model of the
+`organizations` table: both Cashier packages name their methods alike, so `Organization` keeps Cashier's.
+
+### Subscribing
+
+1. Call `POST /api/v1/subscriptions` with a `plan_id`. The plan's trial (`trial_days`) applies once per organization;
    send `use_trial: false` to skip it. The response's `action` says what happened:
-   - `checkout`: the first paid plan. `checkout_url` is the Stripe Checkout page.
+   - `checkout`: the first paid plan. `checkout_url` is the provider's checkout page.
    - `activated`: a free plan is active at once; a paid organization moving to another paid plan has its
-     subscription's price changed in place, prorated by Stripe. When the change bills at once (another interval)
-     and the card is declined, nothing changes and the answer is a 422.
+     subscription's price changed in place, prorated by the provider. When the change bills at once (another
+     interval) and the payment is declined, nothing changes and the answer is a 422.
    - `scheduled`: a paid organization moving to the free plan keeps its plan until the end of the paid period.
    - `checkout_url` is the frontend's success page for the last two.
    - New organizations are subscribed to the free plan automatically when one exists. When none does (the
@@ -303,10 +338,9 @@ Tests check that every message, in the core and in modules, has a Turkish transl
      `php artisan subscriptions:assign-free-plan` (`--dry-run` lists them first) to put every organization
      without an active plan on the free plan. An organization whose paid subscription ends (canceled, downgraded,
      unpaid) is put back on the free plan.
-5. `POST /api/v1/subscriptions/portal` returns the address of a Stripe Customer Portal session, where admins
-   update the payment method, download invoices and manage the subscription. It sends them back to
-   `FRONTEND_URL` + `STRIPE_PORTAL_RETURN_PATH` (`/settings/billing`). Configure the portal's features in the
-   Stripe Dashboard (Settings › Billing › Customer portal).
+2. `POST /api/v1/subscriptions/portal` returns the address of the provider's customer portal, where admins
+   update the payment method, download invoices and manage the subscription. Stripe's sends them back to
+   `FRONTEND_URL` + `STRIPE_PORTAL_RETURN_PATH` (`/settings/billing`); Paddle's links to the website set in Paddle.
 
 ### Plan limits for your own resources
 
@@ -399,9 +433,12 @@ Each contributor adds one section, named by its `section()` method. Names alread
 | `DOCS_URL` | Documentation linked from the welcome e-mail. Empty by default: the e-mail has no documentation link. |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed frontend origins. |
 | `DB_*`, `REDIS_*`, `QUEUE_CONNECTION`, `CACHE_STORE` | Infrastructure settings. |
+| `BILLING_PROVIDER` | `stripe` (default) or `paddle`. See [Billing](#billing). |
 | `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | Stripe credentials. The webhook secret is required in production. |
 | `STRIPE_PORTAL_RETURN_PATH` | Page of the frontend the Stripe Customer Portal returns to (`/settings/billing`). |
 | `STRIPE_PRODUCT_PRO`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` | Stripe identifiers used by the plan seeder. |
+| `PADDLE_API_KEY`, `PADDLE_CLIENT_SIDE_TOKEN`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_SANDBOX` | Paddle credentials. The webhook secret is required in production. |
+| `PADDLE_PRICE_PRO_MONTHLY`, `PADDLE_PRICE_PRO_YEARLY`, `PADDLE_TRIAL_PRICE_PRO_MONTHLY`, `PADDLE_TRIAL_PRICE_PRO_YEARLY` | Paddle prices used by the plan seeder, without and with the trial. |
 | `AUTH_TOKEN_LIFETIME` | API token lifetime in minutes. |
 | `JWT_SECRET`, `JWT_TTL` | Signing key (defaults to `APP_KEY`) and lifetime in minutes of the 2FA challenge tokens. |
 | `APP_SUPPORTED_LOCALES` | Comma-separated languages the API answers in (default `en,tr`). See [Localization](#localization). |

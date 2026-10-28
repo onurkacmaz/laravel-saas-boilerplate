@@ -3,9 +3,9 @@
 namespace Features\Tenant\DeleteOrganization\Application;
 
 use App\Models\Organization;
+use Features\Subscription\Shared\Support\CancelSubscriptions;
 use Features\Tenant\DeleteOrganization\Events\OrganizationDeleted;
 use Illuminate\Support\Facades\DB;
-use Throwable;
 
 class DeleteOrganizationHandler
 {
@@ -15,18 +15,7 @@ class DeleteOrganizationHandler
 
         // Stop billing first: a soft deleted organization must not keep paying
         // for a subscription nobody can use anymore.
-        foreach ($organization->subscriptions()->get() as $subscription) {
-            if (! $subscription->valid()) {
-                continue;
-            }
-
-            try {
-                $subscription->cancelNow();
-            } catch (Throwable $exception) {
-                report($exception);
-                $subscription->markAsCanceled();
-            }
-        }
+        app(CancelSubscriptions::class)($organization);
 
         $deleted = DB::transaction(function () use ($organization) {
             $organization->webhooks()->update(['is_active' => false]);

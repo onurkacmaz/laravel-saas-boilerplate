@@ -2,7 +2,7 @@
 
 namespace Features\Subscription\Shared\Commands;
 
-use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
+use Features\Subscription\Shared\Contracts\BillingGateway;
 use Features\Subscription\Shared\Notifications\TrialEndingSoonNotification;
 use Illuminate\Console\Command;
 
@@ -12,17 +12,12 @@ class SendTrialEndingNotifications extends Command
 
     protected $description = 'Send notifications for trials ending soon';
 
-    public function handle(): int
+    public function handle(BillingGateway $gateway): int
     {
         $threeDaysFromNow = now()->addDays(3)->startOfDay();
         $threeDaysFromNowEnd = now()->addDays(3)->endOfDay();
 
-        $subscriptions = Subscription::query()
-            ->whereNotNull('trial_ends_at')
-            ->where('stripe_status', 'trialing')
-            ->whereBetween('trial_ends_at', [$threeDaysFromNow, $threeDaysFromNowEnd])
-            ->with(['organization.owner', 'plan'])
-            ->get();
+        $subscriptions = $gateway->trialsEndingBetween($threeDaysFromNow, $threeDaysFromNowEnd);
 
         $count = 0;
 

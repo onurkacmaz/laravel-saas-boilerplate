@@ -24,6 +24,7 @@
         "dedoc/scramble": "^0.13.48",
         "firebase/php-jwt": "^7.0",
         "laravel/cashier": "^16.0",
+        "laravel/cashier-paddle": "^2.6",
         "laravel/framework": "^12.0",
         "laravel/nightwatch": "^1.14",
         "laravel/sanctum": "^4.0",

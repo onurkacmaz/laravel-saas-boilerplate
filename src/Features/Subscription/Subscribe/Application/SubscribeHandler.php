@@ -6,19 +6,24 @@ use App\Models\Organization;
 use Exception;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription as SubscriptionModel;
+use Features\Subscription\Shared\Contracts\BillingGateway;
+use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Events\SubscriptionCanceled;
 use Features\Subscription\Shared\Events\SubscriptionCreated;
 use Features\Subscription\Shared\Events\SubscriptionUpdated;
 use Features\Subscription\Shared\Events\SubscriptionUpgraded;
+use Features\Subscription\Shared\Support\BillingUrls;
 use Illuminate\Validation\ValidationException;
 use Infrastructure\Tenant\TenantContext;
 use InvalidArgumentException;
-use Stripe\Exception\CardException;
-use Stripe\Subscription as StripeSubscription;
 use Throwable;
 
 class SubscribeHandler
 {
+    public function __construct(
+        private readonly BillingGateway $gateway,
+    ) {}
+
     /**
      * @throws ValidationException
      * @throws Exception
@@ -40,7 +45,7 @@ class SubscribeHandler
         }
 
         $subscriptionName = 'default';
-        $activeSubscription = $organization->subscription($subscriptionName);
+        $activeSubscription = $this->currentSubscription($organization);
 
         if ($activeSubscription && $activeSubscription->valid() && ! $activeSubscription->onGracePeriod()
             && $activeSubscription->plan_id === $plan->id) {
@@ -71,61 +76,27 @@ class SubscribeHandler
             );
         }
 
-        if (! $plan->getStripePriceId()) {
+        if (! $this->gateway->priceId($plan)) {
             throw ValidationException::withMessages([
                 'plan_id' => __('This plan is not currently available.'),
             ]);
         }
 
-        $stripePrice = $plan->getStripePriceId();
-
         // Switching between paid plans changes the price of the subscription in
-        // place, so Stripe prorates the unused time instead of a second checkout
-        // starting a new subscription and the old one being canceled outright.
+        // place, so the provider prorates the unused time instead of a second
+        // checkout starting a new subscription and the old one being canceled.
         if ($paidSubscription) {
-            return $this->changePaidPlan($organization, $paidSubscription, $plan, $stripePrice);
+            return $this->changePaidPlan($organization, $paidSubscription, $plan);
         }
 
         $metadata = array_filter([
             'organization_id' => $organization->id,
             'plan_id' => $plan->id,
-            'previous_subscription_id' => $activeSubscription?->id,
-            'previous_subscription_stripe_id' => $activeSubscription?->stripe_id,
+            'previous_subscription_id' => $activeSubscription?->getKey(),
+            'previous_subscription_stripe_id' => $activeSubscription?->getAttribute('stripe_id'),
         ]);
 
-        $builder = $organization->newSubscription($subscriptionName, $stripePrice)
-            ->withMetadata($metadata);
-
-        if ($useTrial) {
-            $builder->trialDays($plan->trial_days);
-        } else {
-            $builder->skipTrial();
-        }
-
-        if ($command->quantity !== null) {
-            $builder->quantity($command->quantity);
-        }
-
-        $frontendUrl = $this->frontendUrl();
-
-        $checkout = $builder->checkout([
-            'success_url' => sprintf('%s/subscriptions/success?session_id={CHECKOUT_SESSION_ID}', $frontendUrl),
-            'cancel_url' => sprintf('%s/subscriptions/cancel', $frontendUrl),
-            'client_reference_id' => $organization->id,
-            'metadata' => $metadata,
-        ], [
-            'name' => $organization->name,
-            'email' => $organization->stripeEmail(),
-        ]);
-
-        $session = $checkout->asStripeCheckoutSession();
-
-        return new CheckoutSession(
-            id: $session->id,
-            url: $session->url,
-            expiresAt: $session->expires_at,
-            customerId: $session->customer ?? null
-        );
+        return $this->gateway->checkout($organization, $plan, $useTrial, $command->quantity, $metadata);
     }
 
     private function subscribeToFreePlan(
@@ -134,7 +105,7 @@ class SubscribeHandler
         Subscribe $command,
         bool $useTrial,
         string $subscriptionName,
-        ?SubscriptionModel $activeSubscription
+        ?BillingSubscription $activeSubscription
     ): CheckoutSession {
         $this->cancelExistingSubscription($activeSubscription);
 
@@ -142,9 +113,6 @@ class SubscribeHandler
 
         $trialEndsAt = $useTrial ? now()->addDays($plan->trial_days) : null;
 
-        /**
-         * @var SubscriptionModel $subscription
-         */
         /** @var SubscriptionModel $subscription */
         $subscription = $organization->subscriptions()->create([
             'type' => $subscriptionName,
@@ -162,7 +130,7 @@ class SubscribeHandler
 
         return new CheckoutSession(
             id: $localStripeId,
-            url: $this->successUrl($localStripeId),
+            url: BillingUrls::success($localStripeId),
             expiresAt: now()->addMinutes(10)->getTimestamp(),
             customerId: $organization->stripe_id,
             action: CheckoutSession::ACTION_ACTIVATED,
@@ -170,24 +138,33 @@ class SubscribeHandler
     }
 
     /**
-     * The organization's running Stripe subscription, if it pays for one.
+     * The organization's latest subscription, free or paid, whatever its status.
      */
-    private function paidSubscription(?SubscriptionModel $subscription): ?SubscriptionModel
+    private function currentSubscription(Organization $organization): ?BillingSubscription
+    {
+        return collect([
+            $this->gateway->subscriptions($organization)->first(),
+            $organization->subscriptions()->local()->first(),
+        ])->filter()->sortByDesc('created_at')->first();
+    }
+
+    /**
+     * The organization's running paid subscription, if it pays for one.
+     */
+    private function paidSubscription(?BillingSubscription $subscription): ?BillingSubscription
     {
         if (! $subscription || $subscription->isLocal()) {
             return null;
         }
 
-        $running = in_array($subscription->stripe_status, [StripeSubscription::STATUS_ACTIVE, StripeSubscription::STATUS_TRIALING], true);
-
-        return $running ? $subscription : null;
+        return $subscription->isActive() || $subscription->isTrialing() ? $subscription : null;
     }
 
     /**
-     * Cancel the paid subscription at the end of its period. When Stripe ends
-     * it, the webhook puts the organization on the free plan.
+     * Cancel the paid subscription at the end of its period. When the provider
+     * ends it, the webhook puts the organization on the free plan.
      */
-    private function downgradeAtPeriodEnd(Organization $organization, SubscriptionModel $subscription): CheckoutSession
+    private function downgradeAtPeriodEnd(Organization $organization, BillingSubscription $subscription): CheckoutSession
     {
         if (! $subscription->onGracePeriod()) {
             $subscription->cancel();
@@ -195,9 +172,11 @@ class SubscribeHandler
             event(new SubscriptionCanceled($subscription->fresh(['plan'])));
         }
 
+        $id = $subscription->providerId();
+
         return new CheckoutSession(
-            id: $subscription->stripe_id,
-            url: $this->successUrl($subscription->stripe_id),
+            id: $id,
+            url: BillingUrls::success($id),
             expiresAt: now()->addMinutes(10)->getTimestamp(),
             customerId: $organization->stripe_id,
             action: CheckoutSession::ACTION_SCHEDULED,
@@ -205,23 +184,17 @@ class SubscribeHandler
     }
 
     /**
-     * Move a paid subscription to another paid plan. Stripe prorates the
+     * Move a paid subscription to another paid plan. The provider prorates the
      * change; when it bills at once (another interval) and the payment fails,
      * nothing changes.
      *
      * @throws ValidationException
      */
-    private function changePaidPlan(Organization $organization, SubscriptionModel $subscription, Plan $plan, string $stripePrice): CheckoutSession
+    private function changePaidPlan(Organization $organization, BillingSubscription $subscription, Plan $plan): CheckoutSession
     {
         $oldPlan = $subscription->plan;
 
-        try {
-            $subscription->errorIfPaymentFails()->swap($stripePrice);
-        } catch (CardException) {
-            throw ValidationException::withMessages([
-                'plan_id' => __('Your card was declined. Update your payment method and try again.'),
-            ]);
-        }
+        $this->gateway->swap($subscription, $plan);
 
         $subscription->forceFill(['plan_id' => $plan->id])->save();
         $subscription = $subscription->fresh(['plan']);
@@ -232,36 +205,30 @@ class SubscribeHandler
             event(new SubscriptionUpgraded($subscription, $oldPlan, $plan));
         }
 
+        $id = $subscription->providerId();
+
         return new CheckoutSession(
-            id: $subscription->stripe_id,
-            url: $this->successUrl($subscription->stripe_id),
+            id: $id,
+            url: BillingUrls::success($id),
             expiresAt: now()->addMinutes(10)->getTimestamp(),
             customerId: $organization->stripe_id,
             action: CheckoutSession::ACTION_ACTIVATED,
         );
     }
 
-    private function successUrl(string $sessionId): string
-    {
-        return sprintf('%s/subscriptions/success?session_id=%s', $this->frontendUrl(), $sessionId);
-    }
-
-    private function frontendUrl(): string
-    {
-        return rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/');
-    }
-
     private function hasUsedTrial(Organization $organization): bool
     {
         return $organization->subscriptions()
             ->withTrashed()
+            ->local()
             ->whereNotNull('trial_ends_at')
-            ->exists();
+            ->exists()
+            || $this->gateway->hasUsedTrial($organization);
     }
 
-    private function cancelExistingSubscription(?SubscriptionModel $subscription): void
+    private function cancelExistingSubscription(?BillingSubscription $subscription): void
     {
-        if (! $subscription || $subscription->canceled()) {
+        if (! $subscription || $subscription->isCanceled()) {
             return;
         }
 

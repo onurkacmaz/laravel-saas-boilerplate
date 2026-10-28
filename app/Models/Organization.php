@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
 use Features\Subscription\Infrastructure\Eloquent\Models\Usage;
+use Features\Subscription\Shared\Contracts\BillingGateway;
+use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Webhooks\Infrastructure\Eloquent\Models\Webhook;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -149,15 +151,18 @@ class Organization extends Model
         return Role::query()->withoutOrganization()->find($roleId);
     }
 
-    public function activeSubscription(): Subscription|\Laravel\Cashier\Subscription|null
+    /**
+     * The subscription in effect: the active or trialing paid one, else the
+     * free plan.
+     */
+    public function activeSubscription(): ?BillingSubscription
     {
-        return $this->subscriptions()
-            ->where(function ($query) {
-                $query->where('stripe_status', 'active')
-                    ->orWhere('stripe_status', 'trialing');
-            })
-            ->with('plan')
-            ->first();
+        return app(BillingGateway::class)->activeSubscription($this)
+            ?? $this->subscriptions()
+                ->local()
+                ->whereIn('stripe_status', ['active', 'trialing'])
+                ->with('plan')
+                ->first();
     }
 
     public function hasActiveSubscription(): bool

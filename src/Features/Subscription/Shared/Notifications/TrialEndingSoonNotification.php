@@ -2,7 +2,7 @@
 
 namespace Features\Subscription\Shared\Notifications;
 
-use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
+use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -13,7 +13,7 @@ class TrialEndingSoonNotification extends Notification implements ShouldQueue
     use Queueable;
 
     public function __construct(
-        public Subscription $subscription
+        public BillingSubscription $subscription
     ) {}
 
     /**

@@ -34,10 +34,10 @@ class RequireActiveSubscription
         $subscription = $organization->activeSubscription();
 
         // Check if the subscription is valid (not expired, not past due)
-        if (! $subscription->hasValidSubscription()) {
+        if (! $subscription->valid()) {
             return response()->json([
                 'message' => __('Your subscription is not valid. Please update your payment method or renew your subscription.'),
-                'subscription_status' => $subscription->status->value,
+                'subscription_status' => $subscription->subscriptionStatus()->value,
             ], 402);
         }
 

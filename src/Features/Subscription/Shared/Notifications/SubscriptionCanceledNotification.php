@@ -2,7 +2,7 @@
 
 namespace Features\Subscription\Shared\Notifications;
 
-use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
+use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -13,7 +13,7 @@ class SubscriptionCanceledNotification extends Notification implements ShouldQue
     use Queueable;
 
     public function __construct(
-        public Subscription|\Laravel\Cashier\Subscription $subscription
+        public BillingSubscription $subscription
     ) {}
 
     /**
