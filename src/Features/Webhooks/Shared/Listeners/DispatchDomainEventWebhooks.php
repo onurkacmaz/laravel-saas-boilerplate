@@ -5,6 +5,7 @@ namespace Features\Webhooks\Shared\Listeners;
 use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
+use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Events\PaymentFailed;
 use Features\Subscription\Shared\Events\PaymentSucceeded;
 use Features\Subscription\Shared\Events\SubscriptionCanceled;
@@ -127,12 +128,12 @@ class DispatchDomainEventWebhooks
         ];
     }
 
-    private function subscription(object $subscription): array
+    private function subscription(BillingSubscription $subscription): array
     {
         return [
             'id' => $subscription->id,
             'plan_id' => $subscription->plan_id ?? null,
-            'status' => $subscription->stripe_status,
+            'status' => $subscription->providerStatus(),
             'trial_ends_at' => $subscription->trial_ends_at?->toIso8601String(),
             'ends_at' => $subscription->ends_at?->toIso8601String(),
         ];

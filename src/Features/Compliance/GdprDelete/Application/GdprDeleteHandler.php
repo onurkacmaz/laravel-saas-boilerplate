@@ -6,11 +6,11 @@ use App\Models\Invitation;
 use App\Models\Organization;
 use App\Models\User;
 use Features\Acl\Shared\Support\SystemRoles;
+use Features\Subscription\Shared\Support\CancelSubscriptions;
 use Features\Tenant\DeleteOrganization\Events\OrganizationDeleted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Throwable;
 
 class GdprDeleteHandler
 {
@@ -108,17 +108,6 @@ class GdprDeleteHandler
 
     private function cancelSubscriptions(Organization $organization): void
     {
-        foreach ($organization->subscriptions()->get() as $subscription) {
-            if (! $subscription->valid()) {
-                continue;
-            }
-
-            try {
-                $subscription->cancelNow();
-            } catch (Throwable $exception) {
-                report($exception);
-                $subscription->markAsCanceled();
-            }
-        }
+        app(CancelSubscriptions::class)($organization);
     }
 }

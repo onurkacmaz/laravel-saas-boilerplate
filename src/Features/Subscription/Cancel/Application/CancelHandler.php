@@ -2,13 +2,13 @@
 
 namespace Features\Subscription\Cancel\Application;
 
+use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Events\SubscriptionCanceled;
-use Laravel\Cashier\Subscription;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class CancelHandler
 {
-    public function __invoke(Cancel $command): Subscription|\Features\Subscription\Infrastructure\Eloquent\Models\Subscription|null
+    public function __invoke(Cancel $command): ?BillingSubscription
     {
         $subscription = $command->organization->activeSubscription();
 

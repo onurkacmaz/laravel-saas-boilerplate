@@ -12,6 +12,10 @@ use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
+use Features\Subscription\Infrastructure\Paddle\PaddleCustomer;
+use Features\Subscription\Infrastructure\Paddle\PaddleSubscription;
+use Features\Subscription\Infrastructure\Paddle\PaddleSubscriptionItem;
+use Features\Subscription\Infrastructure\Paddle\PaddleTransaction;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -24,6 +28,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Infrastructure\Tenant\Middleware\RequireTenant;
 use Laravel\Cashier\Cashier;
+use Laravel\Paddle\Cashier as PaddleCashier;
 use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
@@ -39,6 +44,12 @@ class AppServiceProvider extends ServiceProvider
         // as Cashier's default one; only ours must be registered.
         if (class_exists(Cashier::class)) {
             Cashier::ignoreRoutes();
+        }
+
+        // Same for Cashier Paddle, whose default webhook route is replaced by
+        // the PaddleWebhook feature.
+        if (class_exists(PaddleCashier::class)) {
+            PaddleCashier::ignoreRoutes();
         }
 
         // Route parameters are UUIDs (or random tokens). Constraining them turns
@@ -72,6 +83,13 @@ class AppServiceProvider extends ServiceProvider
             if (class_exists(Subscription::class)) {
                 Cashier::useSubscriptionModel(Subscription::class);
             }
+        }
+
+        if (class_exists(PaddleCashier::class)) {
+            PaddleCashier::useCustomerModel(PaddleCustomer::class);
+            PaddleCashier::useSubscriptionModel(PaddleSubscription::class);
+            PaddleCashier::useSubscriptionItemModel(PaddleSubscriptionItem::class);
+            PaddleCashier::useTransactionModel(PaddleTransaction::class);
         }
 
         if (class_exists(Scramble::class)) {

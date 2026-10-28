@@ -2,13 +2,13 @@
 
 namespace Features\Subscription\GetSubscription\Application;
 
-use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
+use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Infrastructure\Tenant\TenantContext;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class GetSubscriptionHandler
 {
-    public function __invoke(GetSubscription $command): Subscription
+    public function __invoke(GetSubscription $command): BillingSubscription
     {
         $organization = TenantContext::getOrganization();
 

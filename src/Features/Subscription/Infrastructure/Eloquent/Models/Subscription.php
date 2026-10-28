@@ -4,7 +4,9 @@ namespace Features\Subscription\Infrastructure\Eloquent\Models;
 
 use App\Models\Organization;
 use Features\Subscription\Infrastructure\Eloquent\Factories\SubscriptionFactory;
+use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Enums\SubscriptionStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,7 +38,7 @@ use Stripe\Subscription as StripeSubscription;
  * @property Plan $plan
  * @property Organization $organization
  */
-class Subscription extends CashierSubscription
+class Subscription extends CashierSubscription implements BillingSubscription
 {
     use HasFactory, HasUuids, SoftDeletes;
 
@@ -138,6 +140,26 @@ class Subscription extends CashierSubscription
         return SubscriptionStatus::fromStripeStatus($this->stripe_status);
     }
 
+    public function subscriptionStatus(): SubscriptionStatus
+    {
+        return $this->status;
+    }
+
+    public function provider(): string
+    {
+        return $this->isLocal() ? 'local' : 'stripe';
+    }
+
+    public function providerId(): string
+    {
+        return $this->stripe_id;
+    }
+
+    public function providerStatus(): ?string
+    {
+        return $this->stripe_status;
+    }
+
     public static function makeLocalStripeId(): string
     {
         return self::LOCAL_SUBSCRIPTION_PREFIX.Str::uuid();
@@ -146,6 +168,18 @@ class Subscription extends CashierSubscription
     public function isLocal(): bool
     {
         return str_starts_with((string) $this->stripe_id, self::LOCAL_SUBSCRIPTION_PREFIX);
+    }
+
+    /** Free plans, which never reach a payment provider. */
+    public function scopeLocal(Builder $query): void
+    {
+        $query->where('stripe_id', 'like', self::LOCAL_SUBSCRIPTION_PREFIX.'%');
+    }
+
+    /** Stripe subscriptions. */
+    public function scopeNotLocal(Builder $query): void
+    {
+        $query->whereNot('stripe_id', 'like', self::LOCAL_SUBSCRIPTION_PREFIX.'%');
     }
 
     public function cancel(): Subscription|static

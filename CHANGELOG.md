@@ -6,11 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Paddle billing through Laravel Cashier Paddle, next to Stripe through Laravel Cashier. `BILLING_PROVIDER` picks the provider (`stripe` by default, so existing applications are unchanged). Paddle subscriptions are kept in the new `paddle_*` tables; `POST /paddle/webhook` keeps them in sync and `GET /paddle/checkout` is the default payment link that opens Paddle Checkout. Plans get `paddle_price_id` and `paddle_trial_price_id`, since Paddle sets trials on prices.
 - `POST /api/v1/subscriptions/portal` opens the Stripe Customer Portal, where admins update their payment method, download invoices and manage the subscription. `STRIPE_PORTAL_RETURN_PATH` sets the page it returns to.
 - `php artisan subscriptions:assign-free-plan` (`--dry-run` lists them first) puts organizations without an active plan on the free plan. An organization created while no free plan existed now leaves a warning in the log, and a failed free-plan subscription can no longer abort the registration's transaction.
 - `POST /api/v1/subscriptions` answers with an `action`: `checkout`, `activated` or `scheduled`.
 
 ### Changed
+- The application reads subscriptions through the `BillingSubscription` contract and talks to the payment provider through `BillingGateway`. `Organization::activeSubscription()` prefers the paid subscription over the free plan. `GET /api/v1/subscriptions` returns the `provider` (`local`, `stripe` or `paddle`); `stripe_status` and `stripe_price` are null for Paddle subscriptions.
 - `POST /api/v1/subscriptions` grants the plan's trial unless the request sends `use_trial: false`. A client that left `use_trial` out got no trial, although the plan has one.
 - Moving between paid plans (monthly to yearly, a bigger plan) changes the price of the Stripe subscription in place, prorated, instead of a second checkout and the old subscription being canceled outright, which lost the unused part of the old plan. A declined card leaves the plan unchanged (422). Choosing the current plan again while it is scheduled to end resumes it.
 - Moving from a paid plan to the free plan cancels the paid subscription at the end of its period instead of at once, and an organization whose paid subscription ends is put back on the free plan. If Stripe cannot be reached, the plan no longer appears switched while Stripe keeps charging: the request fails (502) and nothing changes.

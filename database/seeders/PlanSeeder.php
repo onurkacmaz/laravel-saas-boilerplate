@@ -39,8 +39,9 @@ class PlanSeeder extends Seeder
     }
 
     /**
-     * Seed a sensible default plan catalogue. Stripe identifiers are read from
-     * the environment so the paid plans can be wired to real Stripe prices.
+     * Seed a sensible default plan catalogue. Stripe and Paddle identifiers
+     * are read from the environment so the paid plans can be wired to real
+     * prices of the payment provider.
      */
     public function run(): void
     {
@@ -54,6 +55,8 @@ class PlanSeeder extends Seeder
                 'trial_days' => 0,
                 'stripe_product_id' => null,
                 'stripe_price_id' => null,
+                'paddle_price_id' => null,
+                'paddle_trial_price_id' => null,
                 'features' => ['basic-support'],
                 'limits' => ['users' => 3, 'projects' => 1, 'api_calls' => 1000, 'requests_per_minute' => 60],
             ],
@@ -66,6 +69,8 @@ class PlanSeeder extends Seeder
                 'trial_days' => 14,
                 'stripe_product_id' => env('STRIPE_PRODUCT_PRO'),
                 'stripe_price_id' => env('STRIPE_PRICE_PRO_MONTHLY'),
+                'paddle_price_id' => env('PADDLE_PRICE_PRO_MONTHLY'),
+                'paddle_trial_price_id' => env('PADDLE_TRIAL_PRICE_PRO_MONTHLY'),
                 'features' => ['basic-support', 'priority-support', 'webhooks', 'audit-logs'],
                 'limits' => ['users' => 25, 'projects' => 25, 'api_calls' => 100000, 'requests_per_minute' => 600],
             ],
@@ -78,6 +83,8 @@ class PlanSeeder extends Seeder
                 'trial_days' => 14,
                 'stripe_product_id' => env('STRIPE_PRODUCT_PRO'),
                 'stripe_price_id' => env('STRIPE_PRICE_PRO_YEARLY'),
+                'paddle_price_id' => env('PADDLE_PRICE_PRO_YEARLY'),
+                'paddle_trial_price_id' => env('PADDLE_TRIAL_PRICE_PRO_YEARLY'),
                 'features' => ['basic-support', 'priority-support', 'webhooks', 'audit-logs'],
                 'limits' => ['users' => 25, 'projects' => 25, 'api_calls' => 100000, 'requests_per_minute' => 600],
             ],

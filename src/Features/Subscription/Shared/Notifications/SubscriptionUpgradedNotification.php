@@ -3,7 +3,7 @@
 namespace Features\Subscription\Shared\Notifications;
 
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
-use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
+use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -14,7 +14,7 @@ class SubscriptionUpgradedNotification extends Notification implements ShouldQue
     use Queueable;
 
     public function __construct(
-        public Subscription $subscription,
+        public BillingSubscription $subscription,
         public Plan $oldPlan
     ) {}
 
