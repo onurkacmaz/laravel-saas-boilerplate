@@ -9,12 +9,14 @@ use Features\Subscription\Infrastructure\Paddle\PaddleSubscription;
 use Features\Subscription\Shared\Contracts\BillingGateway;
 use Features\Subscription\Shared\Events\PaymentSucceeded;
 use Features\Subscription\Shared\Events\SubscriptionUpgraded;
+use Features\Subscription\Shared\Notifications\PaymentSucceededNotification;
 use Features\Subscription\Shared\Support\CancelSubscriptions;
 use Features\Subscription\Shared\Support\ResourceLimits;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
 
 uses(RefreshDatabase::class);
@@ -87,6 +89,24 @@ function paddleSubscriptionPayload(string $event, array $data): array
             'items' => [['price' => ['id' => 'pri_pro', 'product_id' => 'pro_1'], 'status' => 'active', 'quantity' => 1]],
             'custom_data' => null,
             ...$data,
+        ],
+    ];
+}
+
+function paddleTransactionPayload(array $totals): array
+{
+    return [
+        'event_type' => 'transaction.completed',
+        'data' => [
+            'id' => 'txn_'.uniqid(),
+            'customer_id' => 'ctm_1',
+            'subscription_id' => 'sub_1',
+            'invoice_number' => null,
+            'status' => 'completed',
+            'currency_code' => 'USD',
+            'billed_at' => now()->toIso8601String(),
+            'details' => ['totals' => ['tax' => '0', ...$totals]],
+            'custom_data' => ['organization_id' => test()->organization->id],
         ],
     ];
 }
@@ -327,6 +347,24 @@ it('reports completed payments', function (): void {
     Event::assertDispatched(PaymentSucceeded::class, fn (PaymentSucceeded $event) => $event->organization->is($this->organization)
         && $event->paymentData['amount_paid'] === 2900
         && $event->paymentData['currency'] === 'usd');
+});
+
+it('reports the amount charged, after the credit of a plan change', function (): void {
+    Event::fake([PaymentSucceeded::class]);
+    paddleCustomer($this->organization);
+
+    $this->postJson('/paddle/webhook', paddleTransactionPayload(['total' => '29000', 'grand_total' => '27100']))->assertOk();
+
+    Event::assertDispatched(PaymentSucceeded::class, fn (PaymentSucceeded $event) => $event->paymentData['amount_paid'] === 27100);
+});
+
+it('sends no payment e-mail for the $0 transaction that starts a trial', function (): void {
+    Notification::fake();
+    paddleCustomer($this->organization);
+
+    $this->postJson('/paddle/webhook', paddleTransactionPayload(['total' => '0', 'grand_total' => '0']))->assertOk();
+
+    Notification::assertNotSentTo($this->organization->owner, PaymentSucceededNotification::class);
 });
 
 it('refuses unsigned webhooks in production', function (): void {
