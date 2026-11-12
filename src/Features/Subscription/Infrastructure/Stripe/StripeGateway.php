@@ -9,7 +9,9 @@ use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
 use Features\Subscription\Shared\Contracts\BillingGateway;
 use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Support\BillingUrls;
+use Features\Subscription\Shared\Support\PaymentGracePeriod;
 use Features\Subscription\Subscribe\Application\CheckoutSession;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Stripe\Exception\CardException;
@@ -41,9 +43,21 @@ class StripeGateway implements BillingGateway
     {
         return $organization->subscriptions()
             ->notLocal()
-            ->whereIn('stripe_status', [StripeSubscription::STATUS_ACTIVE, StripeSubscription::STATUS_TRIALING])
+            ->where(fn (Builder $query) => $query
+                ->whereIn('stripe_status', [StripeSubscription::STATUS_ACTIVE, StripeSubscription::STATUS_TRIALING])
+                ->orWhere(fn (Builder $query) => PaymentGracePeriod::ongoing($query, 'stripe_status')))
+            ->orderByRaw('case when stripe_status = ? then 1 else 0 end', [StripeSubscription::STATUS_PAST_DUE])
             ->with('plan')
             ->first();
+    }
+
+    public function paymentGracePeriodsEnded(): Collection
+    {
+        return Subscription::query()
+            ->notLocal()
+            ->where(fn (Builder $query) => PaymentGracePeriod::endedUnreported($query, 'stripe_status'))
+            ->with('plan')
+            ->get();
     }
 
     public function trialsEndingBetween(CarbonInterface $from, CarbonInterface $to): Collection

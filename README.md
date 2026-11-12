@@ -342,6 +342,24 @@ holds the free plans (and the Stripe subscriptions). Cashier Paddle's `Billable`
    update the payment method, download invoices and manage the subscription. Stripe's sends them back to
    `FRONTEND_URL` + `STRIPE_PORTAL_RETURN_PATH` (`/settings/billing`); Paddle's links to the website set in Paddle.
 
+### Failed payments
+
+When a renewal payment fails, the provider marks the subscription past due and retries it (Stripe's Smart Retries,
+Paddle's payment recovery). For `BILLING_PAST_DUE_GRACE_DAYS` days from the first failure (7 by default) the plan
+stays in effect: `Organization::activeSubscription()` still returns the subscription, so limits, features,
+`subscription.required` and rate limits are unchanged. `GET /api/v1/subscriptions` shows `status: past_due`,
+`past_due_at`, `on_payment_grace_period` and `payment_grace_ends_at`, so the frontend can ask for a new card.
+
+- The payment goes through: the subscription is active again, and the next failure starts a new grace period.
+- The grace period runs out: the organization falls back to the free limits until the payment goes through. No
+  webhook arrives for that moment, so `subscriptions:end-payment-grace` (hourly) raises
+  `OrganizationSubscriptionChanged` once for it.
+- The provider gives up (Stripe's `unpaid`, or a cancellation): the subscription ends as usual.
+
+`BILLING_PAST_DUE_GRACE_DAYS=0` drops the plan as soon as a payment fails. The contract's `pastDueSince()`,
+`paymentGraceEndsAt()` and `onPaymentGracePeriod()` tell a module where a subscription stands, e.g. to keep data
+a lower plan would delete while the customer can still pay.
+
 ### Plan limits for your own resources
 
 `limit:<resource>` compares the plan's `limits.<resource>` with the organization's current count. The boilerplate counts `users` (members) and `api_calls` (usage of the current month); register a counter for every other resource you limit, from a service provider's `boot()` method:
@@ -434,6 +452,7 @@ Each contributor adds one section, named by its `section()` method. Names alread
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed frontend origins. |
 | `DB_*`, `REDIS_*`, `QUEUE_CONNECTION`, `CACHE_STORE` | Infrastructure settings. |
 | `BILLING_PROVIDER` | `stripe` (default) or `paddle`. See [Billing](#billing). |
+| `BILLING_PAST_DUE_GRACE_DAYS` | Days a past due subscription keeps its plan while the payment is retried (7). See [Failed payments](#failed-payments). |
 | `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | Stripe credentials. The webhook secret is required in production. |
 | `STRIPE_PORTAL_RETURN_PATH` | Page of the frontend the Stripe Customer Portal returns to (`/settings/billing`). |
 | `STRIPE_PRODUCT_PRO`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` | Stripe identifiers used by the plan seeder. |
@@ -455,6 +474,7 @@ Each contributor adds one section, named by its `section()` method. Names alread
 - **Queue worker** (`php artisan queue:work`): delivers e-mails, notifications and webhooks.
 - **Scheduler** (`php artisan schedule:run`): run it every minute from cron. Scheduled commands:
   - `subscriptions:trial-ending`: e-mails organizations whose trial ends in 3 days.
+  - `subscriptions:end-payment-grace` (hourly): reports past due subscriptions whose payment grace period ran out.
   - `gdpr:process-deletions`: erases accounts whose deletion grace period has passed.
   - `sanctum:prune-expired`: removes expired API tokens.
 

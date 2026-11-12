@@ -12,6 +12,7 @@ use Features\Subscription\Infrastructure\Paddle\PaddleGateway;
 use Features\Subscription\Infrastructure\Stripe\StripeGateway;
 use Features\Subscription\OpenBillingPortal\Providers\OpenBillingPortalServiceProvider;
 use Features\Subscription\PaddleWebhook\Providers\PaddleWebhookServiceProvider;
+use Features\Subscription\Shared\Commands\EndPaymentGracePeriods;
 use Features\Subscription\Shared\Commands\SendTrialEndingNotifications;
 use Features\Subscription\Shared\Contracts\BillingGateway;
 use Features\Subscription\Shared\Listeners\DispatchOrganizationSubscriptionChanged;
@@ -54,6 +55,7 @@ class SubscriptionServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SendTrialEndingNotifications::class,
+                EndPaymentGracePeriods::class,
             ]);
         }
     }

@@ -30,6 +30,10 @@ class SubscriptionResource extends JsonResource
             'is_canceled' => $this->isCanceled(),
             'is_expired' => $this->isExpired(),
             'on_grace_period' => $this->onGracePeriod(),
+            // A renewal payment failed: the plan stays until payment_grace_ends_at.
+            'past_due_at' => $this->pastDueSince()?->toISOString(),
+            'on_payment_grace_period' => $this->onPaymentGracePeriod(),
+            'payment_grace_ends_at' => $this->paymentGraceEndsAt()?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
         ];
     }

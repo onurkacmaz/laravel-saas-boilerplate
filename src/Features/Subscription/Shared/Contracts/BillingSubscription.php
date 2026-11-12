@@ -2,6 +2,7 @@
 
 namespace Features\Subscription\Shared\Contracts;
 
+use Carbon\CarbonInterface;
 use Features\Subscription\Shared\Enums\SubscriptionStatus;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -44,8 +45,27 @@ interface BillingSubscription
 
     public function onGracePeriod();
 
-    /** Active, trialing or on its grace period. */
+    /**
+     * Active, trialing, on its grace period (canceled, until the end of the
+     * period) or on its payment grace period (past due, while the provider
+     * retries the payment).
+     */
     public function valid();
+
+    /** When the subscription fell past due (a renewal payment failed), or null when it is not. */
+    public function pastDueSince(): ?CarbonInterface;
+
+    /** When the plan stops being in effect if the payment still fails, or null when not past due. */
+    public function paymentGraceEndsAt(): ?CarbonInterface;
+
+    /**
+     * Past due for less than billing.past_due_grace_days: the plan stays in
+     * effect while the provider retries the payment.
+     */
+    public function onPaymentGracePeriod(): bool;
+
+    /** Record that the end of the payment grace period was reported. */
+    public function markPaymentGraceEnded(): void;
 
     /** Cancel at the end of the current period. */
     public function cancel();
