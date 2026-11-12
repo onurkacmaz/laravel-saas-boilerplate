@@ -3,6 +3,7 @@
 namespace Features\Subscription\Infrastructure\Eloquent\Models;
 
 use App\Models\Organization;
+use Features\Subscription\Infrastructure\Eloquent\Concerns\HasPaymentGracePeriod;
 use Features\Subscription\Infrastructure\Eloquent\Factories\SubscriptionFactory;
 use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Enums\SubscriptionStatus;
@@ -32,6 +33,8 @@ use Stripe\Subscription as StripeSubscription;
  * @property Carbon|null $starts_at
  * @property Carbon|null $ends_at
  * @property Carbon|null $canceled_at
+ * @property Carbon|null $past_due_at
+ * @property Carbon|null $payment_grace_ended_at
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Carbon|null $deleted_at
@@ -40,7 +43,7 @@ use Stripe\Subscription as StripeSubscription;
  */
 class Subscription extends CashierSubscription implements BillingSubscription
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, HasPaymentGracePeriod, HasUuids, SoftDeletes;
 
     public const string LOCAL_SUBSCRIPTION_PREFIX = 'local_sub_';
 
@@ -67,6 +70,11 @@ class Subscription extends CashierSubscription implements BillingSubscription
             'cancel_at_period_end' => 'boolean',
             'quantity' => 'integer',
         ];
+    }
+
+    protected function paymentStatusColumn(): string
+    {
+        return 'stripe_status';
     }
 
     public function ownerKeyName(): string

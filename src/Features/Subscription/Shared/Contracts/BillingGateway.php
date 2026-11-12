@@ -29,8 +29,19 @@ interface BillingGateway
      */
     public function subscriptions(Organization $organization): Collection;
 
-    /** The organization's active or trialing paid subscription. */
+    /**
+     * The organization's paid subscription in effect: active, trialing or
+     * past due within the payment grace period (an active one first).
+     */
     public function activeSubscription(Organization $organization): ?BillingSubscription;
+
+    /**
+     * The past due subscriptions, of every organization, whose payment grace
+     * period is over and was not reported yet.
+     *
+     * @return Collection<int, BillingSubscription>
+     */
+    public function paymentGracePeriodsEnded(): Collection;
 
     /**
      * The trialing subscriptions, of every organization, whose trial ends in

@@ -3,6 +3,7 @@
 namespace Features\Subscription\Infrastructure\Paddle;
 
 use App\Models\Organization;
+use Features\Subscription\Infrastructure\Eloquent\Concerns\HasPaymentGracePeriod;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Enums\SubscriptionStatus;
@@ -26,6 +27,8 @@ use Laravel\Paddle\Subscription;
  * @property bool $had_trial
  * @property Carbon|null $paused_at
  * @property Carbon|null $ends_at
+ * @property Carbon|null $past_due_at
+ * @property Carbon|null $payment_grace_ended_at
  * @property Carbon $created_at
  * @property-read string $organization_id
  * @property Plan|null $plan
@@ -33,7 +36,14 @@ use Laravel\Paddle\Subscription;
  */
 class PaddleSubscription extends Subscription implements BillingSubscription
 {
+    use HasPaymentGracePeriod;
+
     protected $table = 'paddle_subscriptions';
+
+    protected function paymentStatusColumn(): string
+    {
+        return 'status';
+    }
 
     protected function casts(): array
     {

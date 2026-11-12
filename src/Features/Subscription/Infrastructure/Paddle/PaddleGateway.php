@@ -7,6 +7,7 @@ use Carbon\CarbonInterface;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Shared\Contracts\BillingGateway;
 use Features\Subscription\Shared\Contracts\BillingSubscription;
+use Features\Subscription\Shared\Support\PaymentGracePeriod;
 use Features\Subscription\Subscribe\Application\CheckoutSession;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -40,9 +41,23 @@ class PaddleGateway implements BillingGateway
     public function activeSubscription(Organization $organization): ?BillingSubscription
     {
         return $this->query($organization)
-            ->whereIn('status', [PaddleSubscription::STATUS_ACTIVE, PaddleSubscription::STATUS_TRIALING])
+            ->where(fn (Builder $query) => $query
+                ->whereIn('status', [PaddleSubscription::STATUS_ACTIVE, PaddleSubscription::STATUS_TRIALING])
+                ->orWhere(fn (Builder $query) => PaymentGracePeriod::ongoing($query, 'status')))
+            ->reorder()
+            ->orderByRaw('case when status = ? then 1 else 0 end', [PaddleSubscription::STATUS_PAST_DUE])
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->with('plan')
             ->first();
+    }
+
+    public function paymentGracePeriodsEnded(): Collection
+    {
+        return PaddleSubscription::query()
+            ->where(fn (Builder $query) => PaymentGracePeriod::endedUnreported($query, 'status'))
+            ->with('plan')
+            ->get();
     }
 
     public function trialsEndingBetween(CarbonInterface $from, CarbonInterface $to): Collection

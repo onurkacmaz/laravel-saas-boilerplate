@@ -152,8 +152,8 @@ class Organization extends Model
     }
 
     /**
-     * The subscription in effect: the active or trialing paid one, else the
-     * free plan.
+     * The subscription in effect: the active or trialing paid one (or one
+     * past due within the payment grace period), else the free plan.
      */
     public function activeSubscription(): ?BillingSubscription
     {

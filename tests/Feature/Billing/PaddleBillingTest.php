@@ -418,7 +418,10 @@ it('resumes a subscription scheduled to end when its plan is chosen again', func
 
 it('finds the active Paddle subscription of the organization', function (): void {
     paddleCustomer($this->organization);
+    // Past due beyond the payment grace period.
+    $this->travel(-(config('billing.past_due_grace_days') + 1))->days();
     paddleSubscription($this->organization, $this->plan, ['status' => 'past_due']);
+    $this->travelBack();
 
     expect($this->organization->activeSubscription())->toBeNull();
 
