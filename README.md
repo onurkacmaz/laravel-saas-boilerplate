@@ -353,7 +353,8 @@ stays in effect: `Organization::activeSubscription()` still returns the subscrip
 - The payment goes through: the subscription is active again, and the next failure starts a new grace period.
 - The grace period runs out: the organization falls back to the free limits until the payment goes through. No
   webhook arrives for that moment, so `subscriptions:end-payment-grace` (hourly) raises
-  `OrganizationSubscriptionChanged` once for it.
+  `OrganizationSubscriptionChanged` once for it. `GET /api/v1/subscriptions` still returns the unpaid subscription
+  (`on_payment_grace_period: false`), so customers see why their plan stopped.
 - The provider gives up (Stripe's `unpaid`, or a cancellation): the subscription ends as usual.
 
 `BILLING_PAST_DUE_GRACE_DAYS=0` drops the plan as soon as a payment fails. The contract's `pastDueSince()`,

@@ -227,6 +227,27 @@ describe('with Stripe', function (): void {
         expect($subscription->payment_grace_ended_at)->toBeNull()
             ->and($subscription->onPaymentGracePeriod())->toBeTrue();
     });
+    it('still shows the unpaid subscription once the grace period is over', function (): void {
+        graceStripeSubscription(['stripe_status' => 'past_due']);
+        $this->travel(8)->days();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-Organization-Id', $this->organization->id)
+            ->getJson('/api/v1/subscriptions')
+            ->assertOk()
+            ->assertJsonPath('data.status', 'past_due')
+            ->assertJsonPath('data.on_payment_grace_period', false)
+            ->assertJsonPath('data.plan.id', $this->pro->id);
+    });
+
+    it('shows no subscription once the unpaid one is canceled', function (): void {
+        graceStripeSubscription(['stripe_status' => 'canceled', 'ends_at' => now()]);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-Organization-Id', $this->organization->id)
+            ->getJson('/api/v1/subscriptions')
+            ->assertNotFound();
+    });
 });
 
 describe('with Paddle', function (): void {
@@ -313,5 +334,18 @@ describe('with Paddle', function (): void {
         Event::assertDispatchedTimes(OrganizationSubscriptionChanged::class, 1);
         Event::assertDispatched(OrganizationSubscriptionChanged::class, fn (OrganizationSubscriptionChanged $event) => $event->organization->is($this->organization)
             && $event->plan === null);
+    });
+
+    it('still shows the unpaid subscription once the grace period is over', function (): void {
+        gracePaddleSubscription(['status' => 'past_due']);
+        $this->travel(8)->days();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-Organization-Id', $this->organization->id)
+            ->getJson('/api/v1/subscriptions')
+            ->assertOk()
+            ->assertJsonPath('data.provider', 'paddle')
+            ->assertJsonPath('data.status', 'past_due')
+            ->assertJsonPath('data.on_payment_grace_period', false);
     });
 });
