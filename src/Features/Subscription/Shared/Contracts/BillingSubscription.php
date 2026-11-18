@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A subscription of an organization, whichever provider bills it: the
- * subscriptions table holds free plans and Stripe subscriptions, Paddle
- * subscriptions live in their own table. The application only reads them
+ * subscriptions table holds free plans and Stripe subscriptions, Paddle and
+ * Polar subscriptions live in tables of their own. The application only reads them
  * through this contract.
  *
  * Every implementation is an Eloquent model with the organization_id,
@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 interface BillingSubscription
 {
-    /** "local" for a free plan, else the provider: "stripe" or "paddle". */
+    /** "local" for a free plan, else the provider: "stripe", "paddle" or "polar". */
     public function provider(): string;
 
     /** The provider's identifier of the subscription (a local one for a free plan). */

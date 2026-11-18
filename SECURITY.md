@@ -23,7 +23,7 @@ to stay anonymous.
 ## Hardening checklist for deployments
 
 - Set a strong `APP_KEY` (and optionally `JWT_SECRET`) and keep `APP_DEBUG=false` in production.
-- Configure `STRIPE_WEBHOOK_SECRET` so Stripe webhook signatures are verified.
+- Configure the webhook secret of your payment provider (`STRIPE_WEBHOOK_SECRET`, `PADDLE_WEBHOOK_SECRET` or `POLAR_WEBHOOK_SECRET`) so webhook signatures are verified.
 - Keep `WEBHOOKS_ALLOW_PRIVATE_URLS=false` outside of local development.
 - Restrict `CORS_ALLOWED_ORIGINS` to your own frontends.
 - Run the queue worker and the scheduler (`php artisan schedule:run` every minute).

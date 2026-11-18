@@ -24,6 +24,7 @@ class PlanResource extends JsonResource
             'stripe_price_id' => $this->stripe_price_id,
             'paddle_price_id' => $this->paddle_price_id,
             'paddle_trial_price_id' => $this->paddle_trial_price_id,
+            'polar_product_id' => $this->polar_product_id,
             'features' => $this->features,
             'limits' => $this->limits,
             'created_at' => $this->created_at?->toISOString(),

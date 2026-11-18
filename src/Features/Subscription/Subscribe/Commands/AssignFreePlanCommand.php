@@ -23,7 +23,8 @@ class AssignFreePlanCommand extends Command
         }
 
         // Free plans and Stripe subscriptions are filtered in the query; a
-        // subscription of another provider (Paddle) lives in its own table.
+        // subscription of another provider (Paddle, Polar) lives in its own
+        // table.
         $organizations = Organization::query()
             ->whereDoesntHave('subscriptions', fn (Builder $query) => $query->whereIn('stripe_status', ['active', 'trialing']));
 

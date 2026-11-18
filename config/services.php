@@ -43,4 +43,15 @@ return [
         'portal_return_path' => env('STRIPE_PORTAL_RETURN_PATH', '/settings/billing'),
     ],
 
+    'polar' => [
+        // An organization access token (Polar > Settings > Developers).
+        'access_token' => env('POLAR_ACCESS_TOKEN'),
+        // The secret of the webhook endpoint pointing to /polar/webhook.
+        'webhook_secret' => env('POLAR_WEBHOOK_SECRET'),
+        'sandbox' => (bool) env('POLAR_SANDBOX', false),
+        // Polar's API is versioned by date; requests and webhooks are pinned
+        // to this one. Keep it on the version set on the webhook endpoint.
+        'api_version' => env('POLAR_API_VERSION', '2026-10'),
+    ],
+
 ];

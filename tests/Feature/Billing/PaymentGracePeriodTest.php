@@ -5,6 +5,7 @@ use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Infrastructure\Eloquent\Models\Subscription;
 use Features\Subscription\Infrastructure\Paddle\PaddleBillable;
 use Features\Subscription\Infrastructure\Paddle\PaddleSubscription;
+use Features\Subscription\Infrastructure\Polar\PolarSubscription;
 use Features\Subscription\Shared\Events\OrganizationSubscriptionChanged;
 use Features\Subscription\Shared\Support\ResourceLimits;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,6 +27,7 @@ beforeEach(function (): void {
         'price' => 2900,
         'stripe_price_id' => 'price_pro_grace',
         'paddle_price_id' => 'pri_pro_grace',
+        'polar_product_id' => 'prod_pro_grace',
         'limits' => ['users' => 50],
     ]);
 });
@@ -87,6 +89,40 @@ function gracePaddleWebhook(string $status): array
             'status' => $status,
             'items' => [['price' => ['id' => 'pri_pro_grace', 'product_id' => 'pro_1'], 'status' => 'active', 'quantity' => 1]],
             'custom_data' => null,
+        ],
+    ];
+}
+
+function gracePolarSubscription(array $attributes = []): PolarSubscription
+{
+    return PolarSubscription::query()->create([
+        'organization_id' => test()->organization->id,
+        'plan_id' => test()->pro->id,
+        'polar_id' => 'sub_polar_grace',
+        'polar_product_id' => 'prod_pro_grace',
+        'status' => 'active',
+        ...$attributes,
+    ]);
+}
+
+function gracePolarWebhook(string $status): array
+{
+    static $tick = 0;
+
+    return [
+        'type' => 'subscription.updated',
+        'data' => [
+            'id' => 'sub_polar_grace',
+            'modified_at' => now()->addSeconds(++$tick)->format('Y-m-d\TH:i:s.u\Z'),
+            'status' => $status,
+            'amount' => 2900,
+            'currency' => 'usd',
+            'customer_id' => 'cus_polar_grace',
+            'product_id' => 'prod_pro_grace',
+            'current_period_end' => now()->addMonth()->toIso8601String(),
+            'cancel_at_period_end' => false,
+            'metadata' => [],
+            'customer' => ['id' => 'cus_polar_grace', 'external_id' => test()->organization->id],
         ],
     ];
 }
@@ -345,6 +381,98 @@ describe('with Paddle', function (): void {
             ->getJson('/api/v1/subscriptions')
             ->assertOk()
             ->assertJsonPath('data.provider', 'paddle')
+            ->assertJsonPath('data.status', 'past_due')
+            ->assertJsonPath('data.on_payment_grace_period', false);
+    });
+});
+
+describe('with Polar', function (): void {
+    beforeEach(function (): void {
+        config([
+            'billing.provider' => 'polar',
+            'services.polar.access_token' => 'polar_oat_test',
+            'services.polar.sandbox' => true,
+            'services.polar.webhook_secret' => null,
+        ]);
+    });
+
+    it('keeps the plan when a renewal payment fails', function (): void {
+        Event::fake([OrganizationSubscriptionChanged::class]);
+        gracePolarSubscription();
+
+        $this->postJson('/polar/webhook', gracePolarWebhook('past_due'))->assertAccepted();
+
+        $subscription = PolarSubscription::query()->where('polar_id', 'sub_polar_grace')->first();
+
+        expect($subscription->past_due_at)->not->toBeNull()
+            ->and($subscription->onPaymentGracePeriod())->toBeTrue()
+            ->and($subscription->valid())->toBeTrue()
+            ->and($this->organization->activeSubscription()?->providerId())->toBe('sub_polar_grace')
+            ->and(graceLimit())->toBe(50);
+
+        Event::assertDispatched(OrganizationSubscriptionChanged::class, fn (OrganizationSubscriptionChanged $event) => $event->plan?->is($this->pro));
+    });
+
+    it('keeps premium routes open during the payment grace period', function (): void {
+        gracePolarSubscription(['status' => 'past_due']);
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-Organization-Id', $this->organization->id)
+            ->getJson('/api/_test/grace-premium')
+            ->assertOk();
+    });
+
+    it('drops the plan once the payment grace period is over', function (): void {
+        gracePolarSubscription(['status' => 'past_due']);
+
+        $this->travel(8)->days();
+
+        expect($this->organization->activeSubscription())->toBeNull()
+            ->and(graceLimit())->not->toBe(50);
+    });
+
+    it('clears the grace period once the payment goes through', function (): void {
+        gracePolarSubscription(['status' => 'past_due']);
+
+        $this->postJson('/polar/webhook', gracePolarWebhook('active'))->assertAccepted();
+
+        expect(PolarSubscription::query()->where('polar_id', 'sub_polar_grace')->value('past_due_at'))->toBeNull();
+    });
+
+    it('prefers an active subscription to a past due one', function (): void {
+        gracePolarSubscription(['polar_id' => 'sub_polar_old']);
+        $this->travel(1)->minutes();
+        // The past due one is the newest.
+        gracePolarSubscription(['status' => 'past_due']);
+
+        expect($this->organization->activeSubscription()?->providerId())->toBe('sub_polar_old');
+    });
+
+    it('reports a payment grace period that ran out, once', function (): void {
+        Event::fake([OrganizationSubscriptionChanged::class]);
+        $subscription = gracePolarSubscription(['status' => 'past_due']);
+        $this->travel(8)->days();
+
+        $this->artisan('subscriptions:end-payment-grace')
+            ->expectsOutput('Ended 1 payment grace period(s).')
+            ->assertSuccessful();
+        $this->artisan('subscriptions:end-payment-grace')
+            ->expectsOutput('Ended 0 payment grace period(s).')
+            ->assertSuccessful();
+
+        expect($subscription->fresh()->payment_grace_ended_at)->not->toBeNull();
+        Event::assertDispatchedTimes(OrganizationSubscriptionChanged::class, 1);
+    });
+
+    it('still shows the unpaid subscription once the grace period is over', function (): void {
+        gracePolarSubscription(['status' => 'past_due']);
+        $this->travel(8)->days();
+
+        $this->actingAs($this->admin, 'sanctum')
+            ->withHeader('X-Organization-Id', $this->organization->id)
+            ->getJson('/api/v1/subscriptions')
+            ->assertOk()
+            ->assertJsonPath('data.provider', 'polar')
             ->assertJsonPath('data.status', 'past_due')
             ->assertJsonPath('data.on_payment_grace_period', false);
     });

@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $stripe_price_id
  * @property string|null $paddle_price_id
  * @property string|null $paddle_trial_price_id
+ * @property string|null $polar_product_id
  * @property array $features
  * @property array $limits
  * @property Carbon $created_at
@@ -48,6 +49,7 @@ class Plan extends Model
         'stripe_price_id',
         'paddle_price_id',
         'paddle_trial_price_id',
+        'polar_product_id',
         'features',
         'limits',
     ];

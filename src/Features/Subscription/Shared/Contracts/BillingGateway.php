@@ -16,7 +16,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 interface BillingGateway
 {
-    /** "stripe" or "paddle". */
+    /** "stripe", "paddle" or "polar". */
     public function name(): string;
 
     /** The provider's price of the plan, or null when the plan is not sold with this provider. */

@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "onurkacmaz/laravel-saas-boilerplate",
     "type": "project",
-    "description": "Open-source multi-tenant SaaS starter kit built with Laravel: organizations, roles & permissions, Stripe billing, 2FA, webhooks, audit logs and GDPR tooling.",
+    "description": "Open-source multi-tenant SaaS starter kit built with Laravel: organizations, roles & permissions, Stripe, Paddle or Polar billing, 2FA, webhooks, audit logs and GDPR tooling.",
     "keywords": [
         "laravel",
         "saas",
