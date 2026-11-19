@@ -7,8 +7,9 @@ return [
     | Payment provider
     |--------------------------------------------------------------------------
     |
-    | The provider paid plans are billed with: "stripe" (Laravel Cashier) or
-    | "paddle" (Laravel Cashier Paddle). Free plans never reach a provider.
+    | The provider paid plans are billed with: "stripe" (Laravel Cashier),
+    | "paddle" (Laravel Cashier Paddle) or "polar" (Polar's API). Free plans
+    | never reach a provider.
     | Pick one before the first paid subscription: subscriptions are not
     | moved from one provider to the other.
     |

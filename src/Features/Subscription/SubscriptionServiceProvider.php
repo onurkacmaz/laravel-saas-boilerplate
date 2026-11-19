@@ -9,9 +9,11 @@ use Features\Subscription\GetPlans\Providers\GetPlansServiceProvider;
 use Features\Subscription\GetSubscription\Providers\GetSubscriptionServiceProvider;
 use Features\Subscription\GetUsage\Providers\GetUsageServiceProvider;
 use Features\Subscription\Infrastructure\Paddle\PaddleGateway;
+use Features\Subscription\Infrastructure\Polar\PolarGateway;
 use Features\Subscription\Infrastructure\Stripe\StripeGateway;
 use Features\Subscription\OpenBillingPortal\Providers\OpenBillingPortalServiceProvider;
 use Features\Subscription\PaddleWebhook\Providers\PaddleWebhookServiceProvider;
+use Features\Subscription\PolarWebhook\Providers\PolarWebhookServiceProvider;
 use Features\Subscription\Shared\Commands\EndPaymentGracePeriods;
 use Features\Subscription\Shared\Commands\SendTrialEndingNotifications;
 use Features\Subscription\Shared\Contracts\BillingGateway;
@@ -29,7 +31,8 @@ class SubscriptionServiceProvider extends ServiceProvider
         $this->app->bind(BillingGateway::class, fn () => match (config('billing.provider')) {
             'stripe' => new StripeGateway,
             'paddle' => new PaddleGateway,
-            default => throw new InvalidArgumentException('Unknown billing provider ['.config('billing.provider').']: set BILLING_PROVIDER to stripe or paddle.'),
+            'polar' => new PolarGateway,
+            default => throw new InvalidArgumentException('Unknown billing provider ['.config('billing.provider').']: set BILLING_PROVIDER to stripe, paddle or polar.'),
         });
 
         $this->loadMigrationsFrom([
@@ -46,6 +49,7 @@ class SubscriptionServiceProvider extends ServiceProvider
         $this->app->register(OpenBillingPortalServiceProvider::class);
         $this->app->register(StripeWebhookServiceProvider::class);
         $this->app->register(PaddleWebhookServiceProvider::class);
+        $this->app->register(PolarWebhookServiceProvider::class);
     }
 
     public function boot(): void

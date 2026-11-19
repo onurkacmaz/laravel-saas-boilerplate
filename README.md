@@ -1,6 +1,6 @@
 # SaaS Boilerplate
 
-> An open-source, API-first, multi-tenant SaaS starter kit built with Laravel 12. It ships organizations, roles and permissions, Stripe billing, 2FA, outgoing webhooks, audit logs and GDPR tooling, organized as vertical feature slices.
+> An open-source, API-first, multi-tenant SaaS starter kit built with Laravel 12. It ships organizations, roles and permissions, Stripe, Paddle or Polar billing, 2FA, outgoing webhooks, audit logs and GDPR tooling, organized as vertical feature slices.
 
 [![CI](https://github.com/onurkacmaz/laravel-saas-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/onurkacmaz/laravel-saas-boilerplate/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -31,7 +31,7 @@ SaaS Boilerplate packages the building blocks that every multi-tenant subscripti
 
 - tenant-aware JSON API endpoints,
 - organization-scoped roles and permissions,
-- Stripe or Paddle billing through Laravel Cashier and Cashier Paddle,
+- Stripe, Paddle or Polar billing, through Laravel Cashier, Cashier Paddle and Polar's API,
 - compliance and security tooling.
 
 Each capability lives in its own slice under `src/Features`. Shared infrastructure, such as tenancy, rate limiting and security middleware, lives under `src/Infrastructure`.
@@ -59,10 +59,10 @@ The project is maintained as a reference implementation: fork it, adapt it to yo
 - Brute-force protection on login, registration, password reset and the 2FA challenge.
 
 **Billing**
-- Stripe (Laravel Cashier) or Paddle (Laravel Cashier Paddle) checkout, picked with `BILLING_PROVIDER`, plus free plans that need no payment provider.
+- Stripe (Laravel Cashier), Paddle (Laravel Cashier Paddle) or Polar checkout, picked with `BILLING_PROVIDER`, plus free plans that need no payment provider.
 - Trials, granted once per organization.
 - Plan-based resource limits (`limit:<resource>` middleware) and plan-based API rate limiting (`rate.limit` middleware). Rate-limit headers are included in responses.
-- Stripe and Paddle webhook handlers that keep local subscriptions and plans in sync.
+- Stripe, Paddle and Polar webhook handlers that keep local subscriptions and plans in sync.
 - Payment, subscription and trial notifications.
 
 **Security & compliance**
@@ -153,7 +153,7 @@ The core's extension points, all registered from that provider:
 - Composer 2.6+
 - PostgreSQL 15+ (MySQL and SQLite also work with the matching `.env` settings)
 - Redis 7+ (recommended for cache and queues in production)
-- A Stripe account for paid plans (optional for local development)
+- A Stripe, Paddle or Polar account for paid plans (optional for local development)
 
 ## Getting Started
 
@@ -291,11 +291,12 @@ Paid plans are billed with one payment provider, set with `BILLING_PROVIDER`:
 - `stripe` (default): Stripe through [Laravel Cashier](https://laravel.com/docs/billing).
 - `paddle`: Paddle Billing through [Laravel Cashier Paddle](https://laravel.com/docs/cashier-paddle). Paddle is the
   merchant of record: it collects sales taxes and VAT, and it accepts sellers from countries Stripe does not serve.
+- `polar`: [Polar](https://polar.sh), through its HTTP API. Polar is a merchant of record too.
 
 Pick one before the first paid subscription: subscriptions are not moved from one provider to the other. Free plans
 never reach a provider. The rest of the application reads subscriptions through
 `Features\Subscription\Shared\Contracts\BillingSubscription` and talks to the provider through
-`BillingGateway`, so limits, middleware, events and outgoing webhooks work the same with both.
+`BillingGateway`, so limits, middleware, events and outgoing webhooks work the same with all of them.
 
 ### Stripe
 
@@ -323,6 +324,29 @@ Paddle subscriptions live in the `paddle_*` tables of Cashier Paddle, next to Ca
 holds the free plans (and the Stripe subscriptions). Cashier Paddle's `Billable` is on `PaddleBillable`, a model of the
 `organizations` table: both Cashier packages name their methods alike, so `Organization` keeps Cashier's.
 
+### Polar
+
+1. Set `BILLING_PROVIDER=polar`, then `POLAR_ACCESS_TOKEN`: an organization access token (Polar › Settings ›
+   Developers) with the `checkouts:write`, `subscriptions:write` and `customer_sessions:write` scopes.
+   `POLAR_SANDBOX=true` uses the sandbox, which needs a token of its own.
+2. Create a product for each paid plan, with a single recurring price, and seed the plans with
+   `POLAR_PRODUCT_PRO_MONTHLY` and `POLAR_PRODUCT_PRO_YEARLY`. The plan's `trial_days` is set on each checkout, so
+   one product serves with and without the trial. Polar ends the trial of a subscription moved to a product without
+   one: when plans have trials, set the same trial on their products, so a plan change during the trial keeps it.
+3. A `quantity` sent to `POST /api/v1/subscriptions` becomes the number of seats: sell those plans as seat-based
+   products.
+4. Create a webhook endpoint (Polar › Settings › Webhooks) for `POST /polar/webhook`, in the raw format, with the
+   `subscription.created`, `subscription.updated` and `order.paid` events. Its secret is `POLAR_WEBHOOK_SECRET`; in
+   production, webhooks are refused (503, logged) until it is set.
+5. Requests are pinned to the API version `POLAR_API_VERSION` (`2026-10`). Set the same version on the webhook
+   endpoint, and move both to a newer one before Polar removes it (each version is supported for about nine
+   months).
+
+Polar subscriptions live in the `polar_subscriptions` table. The organization is Polar's customer, under its own id as
+the external customer ID: checkouts are created for it, webhooks find it, and the customer portal opens for it. Polar
+requires a customer's e-mail address to be unique, so two organizations of the same owner cannot both pay with that
+address. Polar has no failed payment event: a subscription turning `past_due` raises `PaymentFailed`.
+
 ### Subscribing
 
 1. Call `POST /api/v1/subscriptions` with a `plan_id`. The plan's trial (`trial_days`) applies once per organization;
@@ -339,13 +363,13 @@ holds the free plans (and the Stripe subscriptions). Cashier Paddle's `Billable`
      without an active plan on the free plan. An organization whose paid subscription ends (canceled, downgraded,
      unpaid) is put back on the free plan.
 2. `POST /api/v1/subscriptions/portal` returns the address of the provider's customer portal, where admins
-   update the payment method, download invoices and manage the subscription. Stripe's sends them back to
+   update the payment method, download invoices and manage the subscription. Stripe's and Polar's send them back to
    `FRONTEND_URL` + `STRIPE_PORTAL_RETURN_PATH` (`/settings/billing`); Paddle's links to the website set in Paddle.
 
 ### Failed payments
 
 When a renewal payment fails, the provider marks the subscription past due and retries it (Stripe's Smart Retries,
-Paddle's payment recovery). For `BILLING_PAST_DUE_GRACE_DAYS` days from the first failure (7 by default) the plan
+Paddle's and Polar's payment recovery). For `BILLING_PAST_DUE_GRACE_DAYS` days from the first failure (7 by default) the plan
 stays in effect: `Organization::activeSubscription()` still returns the subscription, so limits, features,
 `subscription.required` and rate limits are unchanged. `GET /api/v1/subscriptions` shows `status: past_due`,
 `past_due_at`, `on_payment_grace_period` and `payment_grace_ends_at`, so the frontend can ask for a new card.
@@ -452,13 +476,16 @@ Each contributor adds one section, named by its `section()` method. Names alread
 | `DOCS_URL` | Documentation linked from the welcome e-mail. Empty by default: the e-mail has no documentation link. |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed frontend origins. |
 | `DB_*`, `REDIS_*`, `QUEUE_CONNECTION`, `CACHE_STORE` | Infrastructure settings. |
-| `BILLING_PROVIDER` | `stripe` (default) or `paddle`. See [Billing](#billing). |
+| `BILLING_PROVIDER` | `stripe` (default), `paddle` or `polar`. See [Billing](#billing). |
 | `BILLING_PAST_DUE_GRACE_DAYS` | Days a past due subscription keeps its plan while the payment is retried (7). See [Failed payments](#failed-payments). |
 | `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | Stripe credentials. The webhook secret is required in production. |
 | `STRIPE_PORTAL_RETURN_PATH` | Page of the frontend the Stripe Customer Portal returns to (`/settings/billing`). |
 | `STRIPE_PRODUCT_PRO`, `STRIPE_PRICE_PRO_MONTHLY`, `STRIPE_PRICE_PRO_YEARLY` | Stripe identifiers used by the plan seeder. |
 | `PADDLE_API_KEY`, `PADDLE_CLIENT_SIDE_TOKEN`, `PADDLE_WEBHOOK_SECRET`, `PADDLE_SANDBOX` | Paddle credentials. The webhook secret is required in production. |
 | `PADDLE_PRICE_PRO_MONTHLY`, `PADDLE_PRICE_PRO_YEARLY`, `PADDLE_TRIAL_PRICE_PRO_MONTHLY`, `PADDLE_TRIAL_PRICE_PRO_YEARLY` | Paddle prices used by the plan seeder, without and with the trial. |
+| `POLAR_ACCESS_TOKEN`, `POLAR_WEBHOOK_SECRET`, `POLAR_SANDBOX` | Polar credentials. The webhook secret is required in production. |
+| `POLAR_API_VERSION` | Polar API version of the requests (`2026-10`); keep the webhook endpoint on the same one. |
+| `POLAR_PRODUCT_PRO_MONTHLY`, `POLAR_PRODUCT_PRO_YEARLY` | Polar products used by the plan seeder. |
 | `AUTH_TOKEN_LIFETIME` | API token lifetime in minutes. |
 | `JWT_SECRET`, `JWT_TTL` | Signing key (defaults to `APP_KEY`) and lifetime in minutes of the 2FA challenge tokens. |
 | `APP_SUPPORTED_LOCALES` | Comma-separated languages the API answers in (default `en,tr`). See [Localization](#localization). |
