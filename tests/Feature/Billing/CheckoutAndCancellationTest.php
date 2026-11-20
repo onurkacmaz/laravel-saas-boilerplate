@@ -156,6 +156,23 @@ it('switches paid plans in place, so Stripe prorates the change', function (): v
     Event::assertDispatched(SubscriptionUpgraded::class, fn (SubscriptionUpgraded $event) => $event->oldPlan->is($this->plan) && $event->newPlan->is($yearly));
 });
 
+it('previews no charge now for a Stripe change on the same interval', function (): void {
+    $this->plan->update(['interval' => 'monthly']);
+    $team = Plan::factory()->create(['price' => 4900, 'interval' => 'monthly', 'stripe_price_id' => 'price_team']);
+    $this->organization->forceFill(['stripe_id' => 'cus_1'])->save();
+    $current = paidSubscription($this->organization, $this->plan);
+
+    test()->actingAs(test()->admin, 'sanctum')
+        ->withHeader('X-Organization-Id', test()->organization->id)
+        ->postJson('/api/v1/subscriptions/preview', ['plan_id' => $team->id])
+        ->assertOk()
+        ->assertJsonPath('data.charged_now', false)
+        ->assertJsonPath('data.amount_due', 0);
+
+    expect($this->stripe->lastCall('subscriptions.update'))->toBeNull()
+        ->and($current->fresh()->plan_id)->toBe($this->plan->id);
+});
+
 it('keeps the plan when the card is declined for the change', function (): void {
     $yearly = Plan::factory()->create(['price' => 29000, 'stripe_price_id' => 'price_pro_yearly']);
     $this->organization->forceFill(['stripe_id' => 'cus_1'])->save();

@@ -11,9 +11,11 @@ use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Support\BillingUrls;
 use Features\Subscription\Shared\Support\PaymentGracePeriod;
 use Features\Subscription\Subscribe\Application\CheckoutSession;
+use Features\Subscription\Subscribe\Application\PlanChangePreview;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
+use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\CardException;
 use Stripe\Subscription as StripeSubscription;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -124,6 +126,39 @@ class StripeGateway implements BillingGateway
                 'plan_id' => __('Your card was declined. Update your payment method and try again.'),
             ]);
         }
+    }
+
+    /**
+     * Cashier swaps with prorations: on the same interval the difference goes
+     * on the next invoice, while another interval restarts the period and is
+     * invoiced at once. A trial carries over and bills nothing now.
+     */
+    public function previewSwap(BillingSubscription $subscription, Plan $plan): ?PlanChangePreview
+    {
+        /** @var Subscription $subscription */
+        $currency = strtolower($plan->currency);
+
+        if ($subscription->isTrialing() || $subscription->plan?->interval === $plan->interval) {
+            return new PlanChangePreview(chargedNow: false, amountDue: 0, currency: $currency);
+        }
+
+        try {
+            $invoice = $subscription->previewInvoice($this->priceId($plan));
+        } catch (ApiErrorException $exception) {
+            report($exception);
+
+            return null;
+        }
+
+        if (! $invoice) {
+            return null;
+        }
+
+        return new PlanChangePreview(
+            chargedNow: true,
+            amountDue: $invoice->rawAmountDue(),
+            currency: strtolower((string) $invoice->asStripeInvoice()->currency) ?: $currency,
+        );
     }
 
     public function portalUrl(Organization $organization, string $returnUrl): string

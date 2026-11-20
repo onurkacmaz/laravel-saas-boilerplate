@@ -9,6 +9,7 @@ use Features\Subscription\Shared\Contracts\BillingGateway;
 use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Support\PaymentGracePeriod;
 use Features\Subscription\Subscribe\Application\CheckoutSession;
+use Features\Subscription\Subscribe\Application\PlanChangePreview;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -135,6 +136,39 @@ class PaddleGateway implements BillingGateway
                 'plan_id' => __('Your card was declined. Update your payment method and try again.'),
             ]);
         }
+    }
+
+    /**
+     * Paddle previews the same update swap() makes: the immediate transaction
+     * is what the card on file is charged, after the credit of the unused
+     * time. There is none while trialing.
+     */
+    public function previewSwap(BillingSubscription $subscription, Plan $plan): ?PlanChangePreview
+    {
+        /** @var PaddleSubscription $subscription */
+        try {
+            $preview = Cashier::api('PATCH', "subscriptions/{$subscription->paddle_id}/preview", [
+                'items' => [[
+                    'price_id' => $this->priceId($plan),
+                    'quantity' => $subscription->quantity ?? 1,
+                ]],
+                'proration_billing_mode' => 'prorated_immediately',
+            ])['data'];
+        } catch (PaddleException $exception) {
+            report($exception);
+
+            return null;
+        }
+
+        $transaction = $preview['immediate_transaction'] ?? null;
+        $currency = $transaction['currency_code'] ?? $preview['currency_code'] ?? null;
+
+        return new PlanChangePreview(
+            chargedNow: $transaction !== null,
+            // grand_total is what is charged, as the payment webhook reads it.
+            amountDue: $transaction ? (int) ($transaction['details']['totals']['grand_total'] ?? 0) : 0,
+            currency: $currency ? strtolower($currency) : null,
+        );
     }
 
     /**

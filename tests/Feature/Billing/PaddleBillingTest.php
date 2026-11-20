@@ -282,6 +282,83 @@ it('keeps the plan when Paddle refuses the change', function (): void {
     expect($subscription->fresh()->plan_id)->toBe($this->plan->id);
 });
 
+function previewWithPaddle(Plan $plan)
+{
+    return test()->actingAs(test()->admin, 'sanctum')
+        ->withHeader('X-Organization-Id', test()->organization->id)
+        ->postJson('/api/v1/subscriptions/preview', ['plan_id' => $plan->id]);
+}
+
+it('previews what a paid plan change charges at once, without changing it', function (): void {
+    paddleCustomer($this->organization);
+    $subscription = paddleSubscription($this->organization, $this->plan);
+    $yearly = Plan::factory()->create(['price' => 29000, 'paddle_price_id' => 'pri_pro_yearly']);
+    Http::fake(['sandbox-api.paddle.com/subscriptions/sub_1/preview' => Http::response(['data' => [
+        'status' => 'active',
+        'currency_code' => 'USD',
+        'immediate_transaction' => [
+            'currency_code' => 'USD',
+            'details' => ['totals' => ['total' => '29000', 'credit' => '0', 'grand_total' => '27100']],
+        ],
+    ]])]);
+
+    previewWithPaddle($yearly)
+        ->assertOk()
+        ->assertJsonPath('data.charged_now', true)
+        ->assertJsonPath('data.amount_due', 27100)
+        ->assertJsonPath('data.currency', 'usd');
+
+    Http::assertSent(fn (Request $request) => $request->method() === 'PATCH'
+        && $request->url() === 'https://sandbox-api.paddle.com/subscriptions/sub_1/preview'
+        && $request['items'] === [['price_id' => 'pri_pro_yearly', 'quantity' => 1]]
+        && $request['proration_billing_mode'] === 'prorated_immediately');
+    Http::assertNotSent(fn (Request $request) => $request->url() === 'https://sandbox-api.paddle.com/subscriptions/sub_1');
+
+    expect($subscription->fresh()->plan_id)->toBe($this->plan->id);
+});
+
+it('previews no charge when Paddle bills nothing at once', function (): void {
+    paddleCustomer($this->organization);
+    paddleSubscription($this->organization, $this->plan, ['status' => 'trialing', 'trial_ends_at' => now()->addWeek()]);
+    $yearly = Plan::factory()->create(['price' => 29000, 'paddle_price_id' => 'pri_pro_yearly']);
+    Http::fake(['sandbox-api.paddle.com/subscriptions/sub_1/preview' => Http::response(['data' => [
+        'status' => 'trialing',
+        'currency_code' => 'USD',
+        'immediate_transaction' => null,
+    ]])]);
+
+    previewWithPaddle($yearly)
+        ->assertOk()
+        ->assertJsonPath('data.charged_now', false)
+        ->assertJsonPath('data.amount_due', 0);
+});
+
+it('has no preview when the plan goes through checkout', function (): void {
+    paddleApi();
+
+    previewWithPaddle($this->plan)->assertOk()->assertJsonPath('data', null);
+
+    Http::assertNothingSent();
+});
+
+it('has no preview when Paddle cannot preview the change', function (): void {
+    paddleCustomer($this->organization);
+    paddleSubscription($this->organization, $this->plan);
+    $yearly = Plan::factory()->create(['price' => 29000, 'paddle_price_id' => 'pri_pro_yearly']);
+    Http::fake(['sandbox-api.paddle.com/subscriptions/sub_1/preview' => Http::response(['error' => ['type' => 'request_error', 'code' => 'bad_request', 'detail' => 'Invalid request']], 400)]);
+
+    previewWithPaddle($yearly)->assertOk()->assertJsonPath('data', null);
+});
+
+it('lets only admins preview a plan change', function (): void {
+    [$member] = userInOrganization('member', $this->organization);
+
+    $this->actingAs($member, 'sanctum')
+        ->withHeader('X-Organization-Id', $this->organization->id)
+        ->postJson('/api/v1/subscriptions/preview', ['plan_id' => $this->plan->id])
+        ->assertForbidden();
+});
+
 it('moves to the free plan at the end of the paid period', function (): void {
     paddleCustomer($this->organization);
     $subscription = paddleSubscription($this->organization, $this->plan);
