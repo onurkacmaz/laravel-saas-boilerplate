@@ -10,6 +10,7 @@ use Features\Subscription\Shared\Contracts\BillingSubscription;
 use Features\Subscription\Shared\Support\BillingUrls;
 use Features\Subscription\Shared\Support\PaymentGracePeriod;
 use Features\Subscription\Subscribe\Application\CheckoutSession;
+use Features\Subscription\Subscribe\Application\PlanChangePreview;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Carbon;
@@ -163,6 +164,14 @@ class PolarGateway implements BillingGateway
                 'plan_id' => __('Your card was declined. Update your payment method and try again.'),
             ]);
         }
+    }
+
+    /**
+     * Polar has no preview of a subscription update.
+     */
+    public function previewSwap(BillingSubscription $subscription, Plan $plan): ?PlanChangePreview
+    {
+        return null;
     }
 
     /**

@@ -6,6 +6,7 @@ use App\Models\Organization;
 use Carbon\CarbonInterface;
 use Features\Subscription\Infrastructure\Eloquent\Models\Plan;
 use Features\Subscription\Subscribe\Application\CheckoutSession;
+use Features\Subscription\Subscribe\Application\PlanChangePreview;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -69,6 +70,12 @@ interface BillingGateway
      * @throws ValidationException when the payment is declined: nothing changes
      */
     public function swap(BillingSubscription $subscription, Plan $plan): void;
+
+    /**
+     * What swap() would charge at once, without changing anything. Null when
+     * the provider cannot preview the change.
+     */
+    public function previewSwap(BillingSubscription $subscription, Plan $plan): ?PlanChangePreview;
 
     /**
      * The address of the provider's customer portal.

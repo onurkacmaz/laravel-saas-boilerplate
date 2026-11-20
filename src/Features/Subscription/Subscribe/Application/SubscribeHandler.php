@@ -99,6 +99,27 @@ class SubscribeHandler
         return $this->gateway->checkout($organization, $plan, $useTrial, $command->quantity, $metadata);
     }
 
+    /**
+     * What choosing the plan would charge the card on file at once, when it
+     * moves the organization's paid subscription to another paid plan (see
+     * changePaidPlan). Null when the plan goes through checkout or is free,
+     * or when the provider cannot preview the change.
+     */
+    public function preview(Organization $organization, Plan $plan): ?PlanChangePreview
+    {
+        if ($plan->isFree() || ! $plan->is_active || ! $this->gateway->priceId($plan)) {
+            return null;
+        }
+
+        $subscription = $this->paidSubscription($this->currentSubscription($organization));
+
+        if (! $subscription || $subscription->plan_id === $plan->id) {
+            return null;
+        }
+
+        return $this->gateway->previewSwap($subscription, $plan);
+    }
+
     private function subscribeToFreePlan(
         Organization $organization,
         Plan $plan,

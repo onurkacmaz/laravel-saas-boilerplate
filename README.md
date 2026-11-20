@@ -354,7 +354,14 @@ address. Polar has no failed payment event: a subscription turning `past_due` ra
    - `checkout`: the first paid plan. `checkout_url` is the provider's checkout page.
    - `activated`: a free plan is active at once; a paid organization moving to another paid plan has its
      subscription's price changed in place, prorated by the provider. When the change bills at once (another
-     interval) and the payment is declined, nothing changes and the answer is a 422.
+     interval) and the payment is declined, nothing changes and the answer is a 422. The provider charges the
+     payment method on file without a checkout page, so ask the user first: `POST /api/v1/subscriptions/preview`
+     with the same `plan_id` tells what the change would charge, and changes nothing. Its `data` is
+     `{charged_now, amount_due, currency}` (`amount_due` in the currency's smallest unit, taxes included and the
+     unused time credited), or `null` when the plan goes through checkout, is free, or the provider cannot
+     preview the change (Polar). Paddle previews the update itself; with Stripe, a change on the same interval
+     puts the prorated difference on the next invoice (`charged_now: false`) and another interval is previewed as
+     an invoice. Nothing is charged now while trialing.
    - `scheduled`: a paid organization moving to the free plan keeps its plan until the end of the paid period.
    - `checkout_url` is the frontend's success page for the last two.
    - New organizations are subscribed to the free plan automatically when one exists. When none does (the
